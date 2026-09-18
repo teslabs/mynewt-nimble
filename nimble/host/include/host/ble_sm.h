@@ -194,7 +194,8 @@ extern "C" {
 #define BLE_SM_PAIR_AUTHREQ_KEYPRESS            0x10
 
 /** SM Authentication Requirement: Reserved For Future Use */
-#define BLE_SM_PAIR_AUTHREQ_RESERVED            0xe2
+#define BLE_SM_PAIR_AUTHREQ_CT2                 0x20
+#define BLE_SM_PAIR_AUTHREQ_RESERVED            0xc2
 
 /** @} */
 

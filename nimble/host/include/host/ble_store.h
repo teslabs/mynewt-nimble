@@ -115,6 +115,10 @@ struct ble_store_value_sec {
     unsigned authenticated:1;
     /** Flag indicating Secure Connections support. */
     uint8_t sc:1;
+    /** Negotiated LE-to-BR/EDR CTKD; never infer this for an existing bond. */
+    uint8_t ctkd:1;
+    /** Both peers negotiated the h7 (CT2) variant. */
+    uint8_t ct2:1;
 };
 
 /**
