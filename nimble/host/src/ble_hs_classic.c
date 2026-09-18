@@ -150,7 +150,8 @@ ble_hs_classic_event(struct ble_hci_ev *ev)
     }
     switch (ev->opcode) {
     case 0x03: /* Connection Complete. */
-        if (n != 11 || p[9] != 1) {
+        /* Only BD_ADDR is valid when connection creation fails or is canceled. */
+        if (n != 11 || (!p[0] && p[9] != 1)) {
             break;
         }
         if (!p[0]) {
