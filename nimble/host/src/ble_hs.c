@@ -17,6 +17,7 @@
  * under the License.
  */
 
+#include "host/ble_hs_classic.h"
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -368,6 +369,9 @@ ble_hs_reset(void)
     ble_hs_sync_state = 0;
 
     ble_hs_clear_rx_queue();
+#if MYNEWT_VAL(BLE_CLASSIC)
+    ble_hs_classic_reset();
+#endif
 
     /* Clear adverising and scanning states. */
     ble_gap_reset_state(ble_hs_reset_reason);

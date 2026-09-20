@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+#include "host/ble_hs_classic.h"
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -31,7 +32,7 @@ static struct ble_npl_sem ble_hs_hci_sem;
 
 static struct ble_hci_ev *ble_hs_hci_ack;
 static uint16_t ble_hs_hci_buf_sz;
-static uint8_t ble_hs_hci_max_pkts;
+static uint16_t ble_hs_hci_max_pkts;
 
 /* For now 32-bits of features is enough */
 static uint32_t ble_hs_hci_sup_feat;
@@ -82,6 +83,23 @@ static struct os_mempool ble_hs_hci_frag_mempool;
  * variable must only be accessed while the host mutex is locked.
  */
 uint16_t ble_hs_hci_avail_pkts;
+#if MYNEWT_VAL(BLE_CLASSIC)
+/* One command transaction at a time, even if the controller offers more. */
+static struct ble_npl_sem ble_hs_hci_command_credit;
+
+static void
+ble_hs_hci_update_command_credit(uint8_t count)
+{
+    if (count) {
+        if (!ble_npl_sem_get_count(&ble_hs_hci_command_credit)) {
+            ble_npl_sem_release(&ble_hs_hci_command_credit);
+        }
+    } else {
+        ble_npl_sem_pend(&ble_hs_hci_command_credit, 0);
+    }
+}
+#endif
+
 
 #if MYNEWT_VAL(BLE_HS_PHONY_HCI_ACKS)
 static ble_hs_hci_phony_ack_fn *ble_hs_hci_phony_ack_cb;
@@ -135,7 +153,7 @@ ble_hs_hci_add_avail_pkts(uint16_t delta)
 {
     BLE_HS_DBG_ASSERT(ble_hs_locked_by_cur_task());
 
-    if (ble_hs_hci_avail_pkts + delta > UINT16_MAX) {
+    if (ble_hs_hci_avail_pkts + delta > ble_hs_hci_max_pkts) {
         ble_hs_sched_reset(BLE_HS_ECONTROLLER);
     } else {
         ble_hs_hci_avail_pkts += delta;
@@ -320,9 +338,20 @@ ble_hs_hci_cmd_tx(uint16_t opcode, const void *cmd, uint8_t cmd_len,
 
     ble_hs_hci_lock();
     BLE_HS_DBG_ASSERT(ble_hs_hci_ack == NULL);
-
+#if MYNEWT_VAL(BLE_CLASSIC)
+    rc = ble_npl_sem_pend(&ble_hs_hci_command_credit,
+                         ble_npl_time_ms_to_ticks32(BLE_HCI_CMD_TIMEOUT_MS));
+    if (rc) {
+        rc = BLE_HS_ETIMEOUT_HCI;
+        ble_hs_sched_reset(rc);
+        goto done;
+    }
+#endif
     rc = ble_hs_hci_cmd_send_buf(opcode, cmd, cmd_len);
     if (rc != 0) {
+#if MYNEWT_VAL(BLE_CLASSIC)
+        ble_hs_hci_update_command_credit(1);
+#endif
         goto done;
     }
 
@@ -397,6 +426,21 @@ ble_hs_hci_rx_evt(uint8_t *hci_ev, void *arg)
 
     BLE_HS_DBG_ASSERT(hci_ev != NULL);
 
+#if MYNEWT_VAL(BLE_CLASSIC)
+    if (ev->opcode == BLE_HCI_EVCODE_COMMAND_COMPLETE ||
+        ev->opcode == BLE_HCI_EVCODE_COMMAND_STATUS) {
+        unsigned minimum = ev->opcode == BLE_HCI_EVCODE_COMMAND_COMPLETE ? 3 : 4;
+        if (ev->length < minimum) {
+            ble_transport_free(hci_ev);
+            return BLE_HS_ECONTROLLER;
+        }
+        ble_hs_hci_update_command_credit(ev->data[minimum == 3 ? 0 : 1]);
+        if (get_le16(ev->data + (minimum == 3 ? 1 : 2)) == BLE_HCI_OPCODE_NOP) {
+            ble_transport_free(hci_ev);
+            return 0;
+        }
+    }
+#endif
     switch (ev->opcode) {
     case BLE_HCI_EVCODE_COMMAND_COMPLETE:
         enqueue = (cmd_complete->opcode == BLE_HCI_OPCODE_NOP);
@@ -707,6 +751,10 @@ ble_hs_hci_init(void)
 {
     int rc;
 
+#if MYNEWT_VAL(BLE_CLASSIC)
+    rc = ble_npl_sem_init(&ble_hs_hci_command_credit, 1);
+    BLE_HS_DBG_ASSERT_EVAL(rc == 0);
+#endif
     rc = ble_npl_sem_init(&ble_hs_hci_sem, 0);
     BLE_HS_DBG_ASSERT_EVAL(rc == 0);
 

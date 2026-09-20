@@ -21,6 +21,13 @@ syscfg.defs:
         description: 'Indicates that a BLE host is present.'
         value: 1
 
+    BLE_CLASSIC:
+        description: >
+            Enable experimental BR/EDR protocol hooks for an external dual-mode
+            controller. The host owns HCI commands, startup and ACL credits;
+            the application supplies Classic profiles through ble_hs_classic.h.
+        value: 0
+
     BLE_HS_LOCAL_INFO:
         description: >
             Retain the local controller information the host reads while

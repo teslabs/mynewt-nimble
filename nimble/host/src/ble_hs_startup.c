@@ -17,6 +17,7 @@
  * under the License.
  */
 
+#include "host/ble_hs_classic.h"
 #include <stddef.h>
 #include <string.h>
 #include "host/ble_hs.h"
@@ -49,6 +50,9 @@ ble_hs_startup_read_sup_f_tx(void)
         return BLE_HS_ECONTROLLER;
     }
 
+#if MYNEWT_VAL(BLE_CLASSIC)
+    ble_hs_classic_features(le64toh(rsp.features));
+#endif
     return 0;
 }
 #endif
@@ -176,6 +180,19 @@ ble_hs_startup_read_buf_sz(void)
         }
     }
 
+#if MYNEWT_VAL(BLE_CLASSIC)
+    if (ble_hs_classic_supported()) {
+        uint16_t br_mtu, br_packets;
+        rc = ble_hs_startup_read_buf_sz_tx(&br_mtu, &br_packets);
+        if (rc) {
+            return rc;
+        }
+        rc = ble_hs_classic_buffers(br_mtu, br_packets, le_pktlen == 0);
+        if (rc) {
+            return rc;
+        }
+    }
+#endif
     rc = ble_hs_hci_set_buf_sz(pktlen, max_pkts);
     if (rc != 0) {
         return rc;
@@ -370,7 +387,11 @@ ble_hs_startup_set_evmask_tx(void)
      *     0x0000800000000000 Encryption Key Refresh Complete Event
      *     0x2000000000000000 LE Meta-Event
      */
-    cmd.event_mask = htole64(0x2000800002008090);
+    uint64_t mask = UINT64_C(0x2000800002008090);
+#if MYNEWT_VAL(BLE_CLASSIC)
+    mask |= ble_hs_classic_event_mask();
+#endif
+    cmd.event_mask = htole64(mask);
 
     rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_CTLR_BASEBAND,
                                       BLE_HCI_OCF_CB_SET_EVENT_MASK),

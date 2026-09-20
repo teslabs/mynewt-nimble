@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+#include "host/ble_hs_classic.h"
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
@@ -221,8 +222,9 @@ ble_hs_hci_evt_disconn_complete(uint8_t event_code, const void *data,
 
     ble_hs_lock();
     conn = ble_hs_conn_find(le16toh(ev->conn_handle));
-    if (conn != NULL) {
+    if (conn != NULL && !ev->status && !(conn->bhc_flags & BLE_HS_CONN_F_TERMINATED)) {
         ble_hs_hci_add_avail_pkts(conn->bhc_outstanding_pkts);
+        conn->bhc_outstanding_pkts = 0;
         conn->bhc_flags |= BLE_HS_CONN_F_TERMINATED;
     }
     ble_hs_unlock();
@@ -307,14 +309,13 @@ ble_hs_hci_evt_num_completed_pkts(uint8_t event_code, const void *data,
         if (num_pkts > 0) {
             ble_hs_lock();
             conn = ble_hs_conn_find(le16toh(ev->completed[i].handle));
-            if (conn != NULL) {
+            if (conn != NULL && !(conn->bhc_flags & BLE_HS_CONN_F_TERMINATED)) {
                 if (conn->bhc_outstanding_pkts < num_pkts) {
                     ble_hs_sched_reset(BLE_HS_ECONTROLLER);
                 } else {
                     conn->bhc_outstanding_pkts -= num_pkts;
+                    ble_hs_hci_add_avail_pkts(num_pkts);
                 }
-
-                ble_hs_hci_add_avail_pkts(num_pkts);
             }
             ble_hs_unlock();
         }
@@ -1069,6 +1070,12 @@ ble_hs_hci_evt_process(struct ble_hci_ev *ev)
     STATS_INC(ble_hs_stats, hci_event);
 
 
+#if MYNEWT_VAL(BLE_CLASSIC)
+    if (ble_hs_classic_event(ev)) {
+        ble_transport_free(ev);
+        return 0;
+    }
+#endif
     entry = ble_hs_hci_evt_dispatch_find(ev->opcode);
     if (entry == NULL) {
 #if MYNEWT_VAL(BLE_HS_GAP_UNHANDLED_HCI_EVENT)
@@ -1097,6 +1104,11 @@ ble_hs_hci_evt_process(struct ble_hci_ev *ev)
 int
 ble_hs_hci_evt_acl_process(struct os_mbuf *om)
 {
+#if MYNEWT_VAL(BLE_CLASSIC)
+    if (ble_hs_classic_rx_acl(om)) {
+        return 0;
+    }
+#endif
 #if NIMBLE_BLE_CONNECT
     struct hci_data_hdr hci_hdr;
     uint16_t conn_handle;
