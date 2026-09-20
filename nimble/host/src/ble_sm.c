@@ -47,6 +47,7 @@
 #include "nimble/nimble_opt.h"
 #include "host/ble_sm.h"
 #include "ble_hs_priv.h"
+#include "host/ble_sm_ctkd.h"
 
 #if NIMBLE_BLE_CONNECT
 
@@ -582,10 +583,24 @@ ble_sm_persist_keys(struct ble_sm_proc *proc)
 
     ble_sm_fill_store_value(&peer_addr, authenticated, sc, &proc->our_keys,
                             &value_sec);
+#if MYNEWT_VAL(BLE_SM_SC)
+    uint8_t ctkd = ble_hs_cfg.sm_ctkd ?
+        ble_sm_ctkd_pairing(proc->pair_req + 1, proc->pair_rsp + 1) : 0;
+    /* A random LE identity cannot identify a BR/EDR peer. */
+    if (peer_addr.type != BLE_ADDR_PUBLIC) {
+        ctkd = 0;
+    }
+    value_sec.ctkd = !!(ctkd & BLE_SM_CTKD_NEGOTIATED);
+    value_sec.ct2 = !!(ctkd & BLE_SM_CTKD_CT2);
+#endif
     ble_store_write_our_sec(&value_sec);
 
     ble_sm_fill_store_value(&peer_addr, authenticated, sc, &proc->peer_keys,
                             &value_sec);
+#if MYNEWT_VAL(BLE_SM_SC)
+    value_sec.ctkd = !!(ctkd & BLE_SM_CTKD_NEGOTIATED);
+    value_sec.ct2 = !!(ctkd & BLE_SM_CTKD_CT2);
+#endif
     ble_store_write_peer_sec(&value_sec);
 }
 
@@ -728,7 +743,8 @@ ble_sm_build_authreq(void)
     return ble_hs_cfg.sm_bonding << 0  |
            ble_hs_cfg.sm_mitm << 2     |
            ble_hs_cfg.sm_sc << 3       |
-           ble_hs_cfg.sm_keypress << 4;
+           ble_hs_cfg.sm_keypress << 4 |
+           (ble_hs_cfg.sm_ctkd && ble_hs_cfg.sm_sc) << 5;
 }
 
 static int
@@ -884,6 +900,13 @@ ble_sm_chk_repeat_pairing(uint16_t conn_handle,
             return rc;
         }
 
+        if (bond.ctkd &&
+            (key_size < bond.key_size ||
+             (bond.authenticated && !(proc_flags & BLE_SM_PROC_F_AUTHENTICATED)) ||
+             (bond.sc && !(proc_flags & BLE_SM_PROC_F_SC)))) {
+            return BLE_HS_SM_US_ERR(BLE_SM_ERR_CROSS_TRANS);
+        }
+
         /* Peer is already bonded.  Ask the application what to do about it. */
         rp.conn_handle = conn_handle;
         rp.cur_key_size = bond.key_size;
@@ -999,6 +1022,9 @@ ble_sm_key_dist(struct ble_sm_proc *proc,
 
     *out_init_key_dist = pair_rsp->init_key_dist;
     *out_resp_key_dist = pair_rsp->resp_key_dist;
+
+    *out_init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    *out_resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
 
     /* Encryption info and master ID are only sent in legacy pairing. */
     if (proc->flags & BLE_SM_PROC_F_SC) {
@@ -1667,6 +1693,10 @@ ble_sm_pair_req_fill(struct ble_sm_proc *proc)
     ble_sm_pair_base_fill(req);
     req->init_key_dist = ble_hs_cfg.sm_our_key_dist;
     req->resp_key_dist = ble_hs_cfg.sm_their_key_dist;
+    if (!ble_hs_cfg.sm_ctkd || !ble_hs_cfg.sm_sc) {
+        req->init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+        req->resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    }
 }
 
 static void
@@ -1688,6 +1718,11 @@ ble_sm_pair_rsp_fill(struct ble_sm_proc *proc)
                          ble_hs_cfg.sm_their_key_dist;
     rsp->resp_key_dist = req->resp_key_dist &
                          ble_hs_cfg.sm_our_key_dist;
+    if (!ble_hs_cfg.sm_ctkd || !ble_hs_cfg.sm_sc ||
+        !(req->authreq & BLE_SM_PAIR_AUTHREQ_SC)) {
+        rsp->init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+        rsp->resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    }
 }
 
 static void

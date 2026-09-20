@@ -313,6 +313,10 @@ struct ble_hs_cfg {
      */
     unsigned sm_sc:1;
 
+    /** Enable LE-to-BR/EDR CTKD (h6/h7). Requires a dual-mode identity and
+     * storage preserving the negotiated CTKD metadata with the LE bond. */
+    unsigned sm_ctkd:1;
+
     /** @brief Security Manager Key Press Notification flag
      *
      * Currently unsupported and should not be set.
