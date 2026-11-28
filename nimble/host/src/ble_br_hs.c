@@ -117,6 +117,7 @@ ble_br_hs_timer(void)
     ticks = BLE_HS_FOREVER;
 
     ble_br_l2cap_timer(now, &ticks);
+    ble_br_sdp_timer(now, &ticks);
 
     return ticks;
 }
@@ -479,6 +480,7 @@ ble_br_hs_init(void)
 
     ble_br_gap_init();
     ble_br_l2cap_init();
+    ble_br_sdp_init();
 }
 
 #endif

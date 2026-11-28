@@ -561,6 +561,10 @@ syscfg.defs:
         description: >
             The largest SDU the host accepts on a BR/EDR L2CAP channel.
         value: 672
+    BLE_BREDR_SDP_MAX_RECORDS:
+        description: >
+            The number of service records the SDP server can hold.
+        value: 2
 
 syscfg.logs:
     BLE_HS_LOG:

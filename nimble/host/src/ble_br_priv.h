@@ -157,6 +157,33 @@ void ble_br_l2cap_conn_broken(struct ble_br_conn *conn);
 void ble_br_l2cap_enc_change(struct ble_br_conn *conn);
 void ble_br_l2cap_timer(ble_npl_time_t now, int32_t *ticks);
 
+/* SDP (ble_br_sdp.c) */
+
+struct ble_br_sdp_attr {
+    uint16_t id;
+    /* The value, as a data element */
+    const uint8_t *value;
+    uint8_t value_len;
+};
+
+struct ble_br_sdp_record {
+    const struct ble_br_sdp_attr *attrs;
+    uint8_t num_attrs;
+    /* UUIDs a search matches the record with */
+    const uint16_t *uuids;
+    uint8_t num_uuids;
+};
+
+/* channel is 0 if the peer has no such service */
+typedef void ble_br_sdp_rfcomm_fn(uint16_t conn_handle, int status,
+                                  uint8_t channel, void *arg);
+
+void ble_br_sdp_init(void);
+void ble_br_sdp_timer(ble_npl_time_t now, int32_t *ticks);
+int ble_br_sdp_register(const struct ble_br_sdp_record *record);
+int ble_br_sdp_find_rfcomm(uint16_t conn_handle, uint16_t uuid16,
+                           ble_br_sdp_rfcomm_fn *cb, void *cb_arg);
+
 #ifdef __cplusplus
 }
 #endif
