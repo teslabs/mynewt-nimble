@@ -732,6 +732,9 @@ ble_br_gap_rx_disconn_cmp(struct ble_br_conn *conn, uint8_t reason)
     ble_br_sco_conn_broken(conn->addr);
 #endif
     ble_br_l2cap_conn_broken(conn);
+#if MYNEWT_VAL(BLE_BREDR_HFP_HF)
+    ble_br_hfp_hf_conn_broken(event.disconnect.conn_handle);
+#endif
     ble_br_conn_free(conn);
 
     ble_br_gap_event(&event);
@@ -757,6 +760,9 @@ ble_br_gap_rx_enc_change(struct ble_br_conn *conn, uint8_t status, bool enabled)
     event.enc_change.encrypted = (conn->flags & BLE_BR_CONN_F_ENCRYPTED) != 0;
 
     ble_br_l2cap_enc_change(conn);
+#if MYNEWT_VAL(BLE_BREDR_HFP_HF)
+    ble_br_hfp_hf_enc_change(conn->handle, event.enc_change.status);
+#endif
 
     ble_br_gap_event(&event);
 }

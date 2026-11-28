@@ -119,6 +119,9 @@ ble_br_hs_timer(void)
     ble_br_l2cap_timer(now, &ticks);
     ble_br_sdp_timer(now, &ticks);
     ble_br_rfcomm_timer(now, &ticks);
+#if MYNEWT_VAL(BLE_BREDR_HFP_HF)
+    ble_br_hfp_hf_timer(now, &ticks);
+#endif
 
     return ticks;
 }
@@ -500,6 +503,9 @@ ble_br_hs_init(void)
     ble_br_l2cap_init();
     ble_br_sdp_init();
     ble_br_rfcomm_init();
+#if MYNEWT_VAL(BLE_BREDR_HFP_HF)
+    ble_br_hfp_hf_reset();
+#endif
 }
 
 #endif

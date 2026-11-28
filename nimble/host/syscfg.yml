@@ -577,6 +577,17 @@ syscfg.defs:
         description: >
             Enables synchronous (SCO and eSCO) connections.
         value: 0
+    BLE_BREDR_HFP_HF:
+        description: >
+            Enables the Hands-Free role of the Hands-Free Profile.
+        value: 0
+        restrictions:
+            - 'BLE_BREDR if 1'
+            - 'BLE_BREDR_SCO if 1'
+    BLE_BREDR_HFP_HF_RFCOMM_CHANNEL:
+        description: >
+            The RFCOMM server channel of the Hands-Free service.
+        value: 1
 
 syscfg.logs:
     BLE_HS_LOG:

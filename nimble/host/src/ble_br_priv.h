@@ -239,6 +239,13 @@ int ble_br_sco_rx_evt(uint8_t code, const void *data, unsigned int len);
 int ble_br_sco_rx_disconn_cmp(uint16_t handle, uint8_t reason);
 void ble_br_sco_conn_broken(const uint8_t *addr);
 
+/* Hands-Free (ble_br_hfp_hf.c) */
+
+void ble_br_hfp_hf_reset(void);
+void ble_br_hfp_hf_conn_broken(uint16_t conn_handle);
+void ble_br_hfp_hf_enc_change(uint16_t conn_handle, int status);
+void ble_br_hfp_hf_timer(ble_npl_time_t now, int32_t *ticks);
+
 #ifdef __cplusplus
 }
 #endif
