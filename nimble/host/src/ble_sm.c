@@ -47,6 +47,7 @@
 #include "nimble/nimble_opt.h"
 #include "host/ble_sm.h"
 #include "ble_hs_priv.h"
+#include "ble_br_priv.h"
 
 #if NIMBLE_BLE_CONNECT
 
@@ -521,6 +522,61 @@ ble_sm_ia_ra(struct ble_sm_proc *proc,
     }
 }
 
+/* Whether the BR/EDR link key can be derived from the LTK of a pairing */
+static bool
+ble_sm_link_key_supported(void)
+{
+#if MYNEWT_VAL(BLE_BREDR) && MYNEWT_VAL(BLE_SM_SC)
+    return ble_hs_cfg.sm_sc && ble_br_gap_supported();
+#else
+    return false;
+#endif
+}
+
+#if MYNEWT_VAL(BLE_BREDR) && MYNEWT_VAL(BLE_SM_SC)
+/* Cross-transport key derivation, Core Spec 5.4 Vol 3 Part H 2.4.2.4 */
+static void
+ble_sm_derive_link_key(struct ble_sm_proc *proc, const ble_addr_t *peer_addr)
+{
+    static const uint8_t salt[16] = { '1', 'p', 'm', 't' };
+    static const uint8_t tmp1[4] = { '1', 'p', 'm', 't' };
+    static const uint8_t lebr[4] = { 'r', 'b', 'e', 'l' };
+    const struct ble_sm_pair_cmd *req;
+    const struct ble_sm_pair_cmd *rsp;
+    uint8_t link_key[16];
+    uint8_t ilk[16];
+    int rc;
+
+    req = (void *)(proc->pair_req + 1);
+    rsp = (void *)(proc->pair_rsp + 1);
+
+    /* Both sides ask for it, in a pairing with Secure Connections, and the
+     * peer is known by the address it has on BR/EDR.
+     */
+    if (!(proc->flags & BLE_SM_PROC_F_SC) ||
+        !(rsp->init_key_dist & rsp->resp_key_dist & BLE_SM_PAIR_KEY_DIST_LINK) ||
+        peer_addr->type != BLE_ADDR_PUBLIC) {
+        return;
+    }
+
+    if (req->authreq & rsp->authreq & BLE_SM_PAIR_AUTHREQ_CT2) {
+        rc = ble_sm_alg_h7(salt, proc->ltk, ilk);
+    } else {
+        rc = ble_sm_alg_h6(proc->ltk, tmp1, ilk);
+    }
+    if (rc == 0) {
+        rc = ble_sm_alg_h6(ilk, lebr, link_key);
+    }
+    if (rc == 0) {
+        ble_br_gap_derived_link_key(peer_addr->val, link_key,
+                                    (proc->flags & BLE_SM_PROC_F_AUTHENTICATED) != 0);
+    }
+
+    memset(ilk, 0, sizeof(ilk));
+    memset(link_key, 0, sizeof(link_key));
+}
+#endif
+
 static void
 ble_sm_persist_keys(struct ble_sm_proc *proc)
 {
@@ -587,6 +643,10 @@ ble_sm_persist_keys(struct ble_sm_proc *proc)
     ble_sm_fill_store_value(&peer_addr, authenticated, sc, &proc->peer_keys,
                             &value_sec);
     ble_store_write_peer_sec(&value_sec);
+
+#if MYNEWT_VAL(BLE_BREDR) && MYNEWT_VAL(BLE_SM_SC)
+    ble_sm_derive_link_key(proc, &peer_addr);
+#endif
 }
 
 static int
@@ -725,10 +785,19 @@ ble_sm_rx_noop(uint16_t conn_handle, struct os_mbuf **om,
 static uint8_t
 ble_sm_build_authreq(void)
 {
-    return ble_hs_cfg.sm_bonding << 0  |
-           ble_hs_cfg.sm_mitm << 2     |
-           ble_hs_cfg.sm_sc << 3       |
-           ble_hs_cfg.sm_keypress << 4;
+    uint8_t authreq;
+
+    authreq = ble_hs_cfg.sm_bonding << 0 | ble_hs_cfg.sm_mitm << 2 |
+              ble_hs_cfg.sm_sc << 3 | ble_hs_cfg.sm_keypress << 4;
+
+#if MYNEWT_VAL(BLE_BREDR) && MYNEWT_VAL(BLE_SM_SC)
+    /* The BR/EDR link key is derived with h7 if the peer can do it too */
+    if (ble_hs_cfg.sm_sc && (ble_hs_cfg.sm_our_key_dist & BLE_SM_PAIR_KEY_DIST_LINK)) {
+        authreq |= BLE_SM_PAIR_AUTHREQ_CT2;
+    }
+#endif
+
+    return authreq;
 }
 
 static int
@@ -999,6 +1068,10 @@ ble_sm_key_dist(struct ble_sm_proc *proc,
 
     *out_init_key_dist = pair_rsp->init_key_dist;
     *out_resp_key_dist = pair_rsp->resp_key_dist;
+
+    /* The link key is derived from the LTK: nothing is sent for it. */
+    *out_init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    *out_resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
 
     /* Encryption info and master ID are only sent in legacy pairing. */
     if (proc->flags & BLE_SM_PROC_F_SC) {
@@ -1667,6 +1740,11 @@ ble_sm_pair_req_fill(struct ble_sm_proc *proc)
     ble_sm_pair_base_fill(req);
     req->init_key_dist = ble_hs_cfg.sm_our_key_dist;
     req->resp_key_dist = ble_hs_cfg.sm_their_key_dist;
+
+    if (!ble_sm_link_key_supported()) {
+        req->init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+        req->resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    }
 }
 
 static void
@@ -1688,6 +1766,11 @@ ble_sm_pair_rsp_fill(struct ble_sm_proc *proc)
                          ble_hs_cfg.sm_their_key_dist;
     rsp->resp_key_dist = req->resp_key_dist &
                          ble_hs_cfg.sm_our_key_dist;
+
+    if (!ble_sm_link_key_supported() || !(req->authreq & BLE_SM_PAIR_AUTHREQ_SC)) {
+        rsp->init_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+        rsp->resp_key_dist &= ~BLE_SM_PAIR_KEY_DIST_LINK;
+    }
 }
 
 static void

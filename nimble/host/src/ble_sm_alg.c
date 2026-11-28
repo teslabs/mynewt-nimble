@@ -408,6 +408,64 @@ ble_sm_alg_g2(const uint8_t *u, const uint8_t *v, const uint8_t *x,
 }
 
 int
+ble_sm_alg_h6(const uint8_t *w, const uint8_t *key_id, uint8_t *out)
+{
+    uint8_t ws[16];
+    uint8_t ids[4];
+    int rc;
+
+    /*
+     * The key ID is used as input m to the function AES-CMAC and W is used
+     * as the key k.
+     *
+     * Core Spec 5.4 Vol 3 Part H 2.2.10
+     *
+     * note:
+     * ble_sm_alg_aes_cmac uses BE data; ble_sm_alg_h6 accepts LE so we swap.
+     */
+    swap_buf(ws, w, 16);
+    swap_buf(ids, key_id, 4);
+
+    rc = ble_sm_alg_aes_cmac(ws, ids, sizeof(ids), out);
+    if (rc != 0) {
+        return BLE_HS_EUNKNOWN;
+    }
+
+    swap_in_place(out, 16);
+
+    return 0;
+}
+
+int
+ble_sm_alg_h7(const uint8_t *salt, const uint8_t *w, uint8_t *out)
+{
+    uint8_t salts[16];
+    uint8_t ws[16];
+    int rc;
+
+    /*
+     * W is used as input m to the function AES-CMAC and SALT is used as the
+     * key k.
+     *
+     * Core Spec 5.4 Vol 3 Part H 2.2.11
+     *
+     * note:
+     * ble_sm_alg_aes_cmac uses BE data; ble_sm_alg_h7 accepts LE so we swap.
+     */
+    swap_buf(salts, salt, 16);
+    swap_buf(ws, w, 16);
+
+    rc = ble_sm_alg_aes_cmac(salts, ws, sizeof(ws), out);
+    if (rc != 0) {
+        return BLE_HS_EUNKNOWN;
+    }
+
+    swap_in_place(out, 16);
+
+    return 0;
+}
+
+int
 ble_sm_alg_csis_k1(const uint8_t *n, size_t n_len, const uint8_t *salt,
                    const uint8_t *p, size_t p_len, uint8_t *out)
 {

@@ -112,6 +112,10 @@ void ble_br_gap_rx_enc_change(struct ble_br_conn *conn, uint8_t status, bool ena
 int ble_br_gap_security_initiate_conn(struct ble_br_conn *conn);
 uint64_t ble_br_gap_local_features(void);
 
+/* Takes the link key derived from the LTK of an LE pairing with the peer */
+void ble_br_gap_derived_link_key(const uint8_t *addr, const uint8_t *key,
+                                 bool authenticated);
+
 /* Adds a 16-bit service class to the extended inquiry response */
 int ble_br_gap_eir_add_uuid16(uint16_t uuid16);
 

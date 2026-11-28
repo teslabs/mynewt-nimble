@@ -314,6 +314,8 @@ int ble_sm_alg_f6(const uint8_t *w, const uint8_t *n1, const uint8_t *n2,
                   const uint8_t *r, const uint8_t *iocap, uint8_t a1t,
                   const uint8_t *a1, uint8_t a2t, const uint8_t *a2,
                   uint8_t *check);
+int ble_sm_alg_h6(const uint8_t *w, const uint8_t *key_id, uint8_t *out);
+int ble_sm_alg_h7(const uint8_t *salt, const uint8_t *w, uint8_t *out);
 int ble_sm_alg_csis_k1(const uint8_t *n, size_t n_len, const uint8_t *salt,
                        const uint8_t *p, size_t p_len, uint8_t *out);
 int ble_sm_alg_csis_s1(const uint8_t *m, size_t m_len, uint8_t *out);

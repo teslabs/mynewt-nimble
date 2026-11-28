@@ -93,6 +93,23 @@ ble_br_gap_link_key_store(const uint8_t *addr, const uint8_t *key, uint8_t key_t
     return ble_store_write_br_link_key(&value);
 }
 
+void
+ble_br_gap_derived_link_key(const uint8_t *addr, const uint8_t *key, bool authenticated)
+{
+    struct ble_br_gap_event event;
+
+    memset(&event, 0, sizeof(event));
+    event.type = BLE_BR_GAP_EVENT_LINK_KEY;
+    memcpy(event.link_key.addr, addr, BLE_DEV_ADDR_LEN);
+    memcpy(event.link_key.key, key, BLE_BR_GAP_LINK_KEY_LEN);
+    event.link_key.key_type = authenticated ? BLE_HCI_LINK_KEY_TYPE_AUTH_P256
+                                            : BLE_HCI_LINK_KEY_TYPE_UNAUTH_P256;
+
+    ble_br_gap_link_key_store(addr, key, event.link_key.key_type);
+
+    ble_br_gap_event(&event);
+}
+
 static int
 ble_br_gap_wr_name(void)
 {
