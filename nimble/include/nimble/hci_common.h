@@ -70,16 +70,169 @@ struct ble_hci_ev {
 #define BLE_HCI_NUM_LE_CMDS                 (79)
 
 /* List of OCF for Link Control commands (OGF=0x01) */
+#define BLE_HCI_OCF_CREATE_CONN (0x0005)
+struct ble_hci_lc_create_conn_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint16_t pkt_type;
+    uint8_t psr_mode;
+    uint8_t reserved;
+    uint16_t clock_offset;
+    uint8_t allow_role_switch;
+} __attribute__((packed));
+
 #define BLE_HCI_OCF_DISCONNECT_CMD          (0x0006)
 struct ble_hci_lc_disconnect_cp {
     uint16_t conn_handle;
     uint8_t  reason;
 } __attribute__((packed));
 
+#define BLE_HCI_OCF_ACCEPT_CONN_REQ (0x0009)
+struct ble_hci_lc_accept_conn_req_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t role;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_REJECT_CONN_REQ (0x000A)
+struct ble_hci_lc_reject_conn_req_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t reason;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_LINK_KEY_REQ_REPLY (0x000B)
+struct ble_hci_lc_link_key_req_reply_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t key[16];
+} __attribute__((packed));
+
+/* The negative replies and the confirmations take, and return, an address */
+#define BLE_HCI_OCF_LINK_KEY_REQ_NEG_REPLY (0x000C)
+#define BLE_HCI_OCF_PIN_CODE_REQ_NEG_REPLY (0x000E)
+struct ble_hci_lc_bd_addr_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+} __attribute__((packed));
+struct ble_hci_lc_bd_addr_rp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_AUTH_REQUESTED (0x0011)
+struct ble_hci_lc_auth_requested_cp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_SET_CONN_ENCRYPT (0x0013)
+struct ble_hci_lc_set_conn_encrypt_cp {
+    uint16_t conn_handle;
+    uint8_t enable;
+} __attribute__((packed));
+
 #define BLE_HCI_OCF_RD_REM_VER_INFO         (0x001D)
 struct ble_hci_rd_rem_ver_info_cp {
     uint16_t conn_handle;
 } __attribute__((packed));
+
+#define BLE_HCI_OCF_SETUP_SYNCH_CONN (0x0028)
+struct ble_hci_lc_setup_synch_conn_cp {
+    uint16_t conn_handle;
+    uint32_t tx_bandwidth;
+    uint32_t rx_bandwidth;
+    uint16_t max_latency;
+    uint16_t voice_setting;
+    uint8_t retrans_effort;
+    uint16_t pkt_type;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_ACCEPT_SYNCH_CONN_REQ (0x0029)
+struct ble_hci_lc_accept_synch_conn_req_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint32_t tx_bandwidth;
+    uint32_t rx_bandwidth;
+    uint16_t max_latency;
+    uint16_t voice_setting;
+    uint8_t retrans_effort;
+    uint16_t pkt_type;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_REJECT_SYNCH_CONN_REQ (0x002A)
+
+#define BLE_HCI_OCF_IO_CAP_REQ_REPLY (0x002B)
+struct ble_hci_lc_io_cap_req_reply_cp {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t io_cap;
+    uint8_t oob_present;
+    uint8_t auth_req;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_USER_CONFIRM_REPLY     (0x002C)
+#define BLE_HCI_OCF_USER_CONFIRM_NEG_REPLY (0x002D)
+
+/* ACL packet types: DM1, DH1, DM3, DH3, DM5 and DH5 */
+#define BLE_HCI_ACL_PKT_TYPES (0xCC18)
+
+#define BLE_HCI_PSR_MODE_R1 (0x01)
+
+#define BLE_HCI_ROLE_CENTRAL    (0x00)
+#define BLE_HCI_ROLE_PERIPHERAL (0x01)
+
+#define BLE_HCI_IO_CAP_DISPLAY_YESNO   (0x01)
+#define BLE_HCI_IO_CAP_NO_INPUT_OUTPUT (0x03)
+
+#define BLE_HCI_AUTH_REQ_NO_BONDING      (0x00)
+#define BLE_HCI_AUTH_REQ_MITM            (0x01)
+#define BLE_HCI_AUTH_REQ_GENERAL_BONDING (0x04)
+
+/* Voice setting: linear, 2's complement, 16-bit samples, CVSD on air */
+#define BLE_HCI_VOICE_SETTING_PCM16_CVSD (0x0060)
+
+#define BLE_HCI_SYNCH_PKT_HV3     (0x0004)
+#define BLE_HCI_SYNCH_PKT_EV3     (0x0008)
+#define BLE_HCI_SYNCH_PKT_NO_2EV3 (0x0040)
+#define BLE_HCI_SYNCH_PKT_NO_3EV3 (0x0080)
+#define BLE_HCI_SYNCH_PKT_NO_2EV5 (0x0100)
+#define BLE_HCI_SYNCH_PKT_NO_3EV5 (0x0200)
+
+#define BLE_HCI_SYNCH_BANDWIDTH_8K      (8000)
+#define BLE_HCI_SYNCH_LATENCY_DONT_CARE (0xFFFF)
+#define BLE_HCI_SYNCH_RETRANS_NONE      (0x00)
+#define BLE_HCI_SYNCH_RETRANS_POWER     (0x01)
+#define BLE_HCI_SYNCH_RETRANS_QUALITY   (0x02)
+
+/* List of OCF for Link Policy commands (OGF=0x02) */
+#define BLE_HCI_OCF_LP_SNIFF_MODE (0x0003)
+struct ble_hci_lp_sniff_mode_cp {
+    uint16_t conn_handle;
+    uint16_t max_interval;
+    uint16_t min_interval;
+    uint16_t attempt;
+    uint16_t timeout;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_LP_EXIT_SNIFF_MODE (0x0004)
+struct ble_hci_lp_exit_sniff_mode_cp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_LP_WR_DEFAULT_LINK_POLICY (0x000F)
+struct ble_hci_lp_wr_default_link_policy_cp {
+    uint16_t settings;
+} __attribute__((packed));
+
+#define BLE_HCI_OCF_LP_SNIFF_SUBRATING (0x0011)
+struct ble_hci_lp_sniff_subrating_cp {
+    uint16_t conn_handle;
+    uint16_t max_latency;
+    uint16_t min_remote_timeout;
+    uint16_t min_local_timeout;
+} __attribute__((packed));
+struct ble_hci_lp_sniff_subrating_rp {
+    uint16_t conn_handle;
+} __attribute__((packed));
+
+#define BLE_HCI_LINK_POLICY_ROLE_SWITCH (0x0001)
+#define BLE_HCI_LINK_POLICY_SNIFF       (0x0004)
+
+#define BLE_HCI_MODE_ACTIVE (0x00)
+#define BLE_HCI_MODE_HOLD   (0x01)
+#define BLE_HCI_MODE_SNIFF  (0x02)
 
 /* List of OCF for Controller and Baseband commands (OGF=0x03) */
 #define BLE_HCI_OCF_CB_SET_EVENT_MASK       (0x0001)
@@ -88,6 +241,14 @@ struct ble_hci_cb_set_event_mask_cp {
 } __attribute__((packed));
 
 #define BLE_HCI_OCF_CB_RESET                (0x0003)
+
+#define BLE_HCI_OCF_CB_WR_LOCAL_NAME (0x0013)
+#define BLE_HCI_LOCAL_NAME_LEN       (248)
+
+#define BLE_HCI_OCF_CB_WR_SCAN_ENABLE (0x001A)
+
+#define BLE_HCI_OCF_CB_WR_CLASS_OF_DEVICE (0x0024)
+#define BLE_HCI_CLASS_OF_DEVICE_LEN       (3)
 
 #define BLE_HCI_OCF_CB_READ_TX_PWR          (0x002D)
 struct ble_hci_cb_read_tx_pwr_cp {
@@ -123,6 +284,18 @@ struct ble_hci_cb_host_num_comp_pkts_cp {
     uint8_t handles;
     struct ble_hci_cb_host_num_comp_pkts_entry h[0];
 } __attribute__((packed));
+
+#define BLE_HCI_OCF_CB_WR_EIR (0x0052)
+#define BLE_HCI_EIR_LEN       (240)
+struct ble_hci_cb_wr_eir_cp {
+    uint8_t fec_required;
+    uint8_t eir[BLE_HCI_EIR_LEN];
+} __attribute__((packed));
+
+#define BLE_HCI_EIR_TYPE_UUID16_COMPLETE (0x03)
+#define BLE_HCI_EIR_TYPE_NAME_COMPLETE   (0x09)
+
+#define BLE_HCI_OCF_CB_WR_SSP_MODE (0x0056)
 
 #define BLE_HCI_OCF_CB_SET_EVENT_MASK2      (0x0063)
 struct ble_hci_cb_set_event_mask2_cp {
@@ -1663,7 +1836,25 @@ struct ble_hci_vs_set_scan_cfg_cp {
 #define BLE_HCI_EVCODE_INQUIRY_CMP          (0x01)
 #define BLE_HCI_EVCODE_INQUIRY_RESULT       (0x02)
 #define BLE_HCI_EVCODE_CONN_DONE            (0x03)
+struct ble_hci_ev_conn_done {
+    uint8_t status;
+    uint16_t conn_handle;
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t link_type;
+    uint8_t encryption_enabled;
+} __attribute__((packed));
+
+#define BLE_HCI_LINK_TYPE_SCO  (0x00)
+#define BLE_HCI_LINK_TYPE_ACL  (0x01)
+#define BLE_HCI_LINK_TYPE_ESCO (0x02)
+
 #define BLE_HCI_EVCODE_CONN_REQUEST         (0x04)
+struct ble_hci_ev_conn_request {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t class_of_device[3];
+    uint8_t link_type;
+} __attribute__((packed));
+
 #define BLE_HCI_EVCODE_DISCONN_CMP          (0x05)
 struct ble_hci_ev_disconn_cmp {
     uint8_t status;
@@ -1672,6 +1863,11 @@ struct ble_hci_ev_disconn_cmp {
 } __attribute__((packed));
 
 #define BLE_HCI_EVCODE_AUTH_CMP             (0x06)
+struct ble_hci_ev_auth_cmp {
+    uint8_t status;
+    uint16_t conn_handle;
+} __attribute__((packed));
+
 #define BLE_HCI_EVCODE_REM_NAME_REQ_CMP     (0x07)
 
 #define BLE_HCI_EVCODE_ENCRYPT_CHG          (0x08)
@@ -1731,10 +1927,29 @@ struct ble_hci_ev_num_comp_pkts {
 } __attribute__((packed));
 
 #define BLE_HCI_EVCODE_MODE_CHANGE          (0x14)
+struct ble_hci_ev_mode_change {
+    uint8_t status;
+    uint16_t conn_handle;
+    uint8_t mode;
+    uint16_t interval;
+} __attribute__((packed));
 #define BLE_HCI_EVCODE_RETURN_LINK_KEYS     (0x15)
 #define BLE_HCI_EVCODE_PIN_CODE_REQ         (0x16)
 #define BLE_HCI_EVCODE_LINK_KEY_REQ         (0x17)
 #define BLE_HCI_EVCODE_LINK_KEY_NOTIFY      (0x18)
+/* The requests of a key, a PIN code and the I/O capabilities carry an address */
+struct ble_hci_ev_bd_addr {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+} __attribute__((packed));
+
+#define BLE_HCI_LINK_KEY_TYPE_UNAUTH_P256 (0x07)
+#define BLE_HCI_LINK_KEY_TYPE_AUTH_P256   (0x08)
+
+struct ble_hci_ev_link_key_notify {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t key[16];
+    uint8_t key_type;
+} __attribute__((packed));
 #define BLE_HCI_EVCODE_LOOPBACK_CMD         (0x19)
 
 #define BLE_HCI_EVCODE_DATA_BUF_OVERFLOW    (0x1A)
@@ -1753,6 +1968,18 @@ struct ble_hci_ev_data_buf_overflow {
 #define BLE_HCI_EVCODE_READ_REM_EXT_FEAT    (0x23)
 /* NOTE: 0x24 - 0x2B not defined */
 #define BLE_HCI_EVCODE_SYNCH_CONN_COMP      (0x2C)
+struct ble_hci_ev_synch_conn_comp {
+    uint8_t status;
+    uint16_t conn_handle;
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint8_t link_type;
+    uint8_t tx_interval;
+    uint8_t retrans_window;
+    uint16_t rx_pkt_len;
+    uint16_t tx_pkt_len;
+    uint8_t air_mode;
+} __attribute__((packed));
+
 #define BLE_HCI_EVCODE_SYNCH_CONN_CHG       (0x2D)
 #define BLE_HCI_EVCODE_SNIFF_SUBRATING      (0x2E)
 #define BLE_HCI_EVCODE_EXT_INQ_RESULT       (0x2F)
@@ -1766,9 +1993,19 @@ struct ble_hci_ev_enc_key_refresh {
 #define BLE_HCI_EVOCDE_IO_CAP_REQ           (0x31)
 #define BLE_HCI_EVCODE_IO_CAP_RSP           (0x32)
 #define BLE_HCI_EVCODE_USER_CONFIRM_REQ     (0x33)
+struct ble_hci_ev_user_confirm_req {
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+    uint32_t numeric_value;
+} __attribute__((packed));
+
 #define BLE_HCI_EVCODE_PASSKEY_REQ          (0x34)
 #define BLE_HCI_EVCODE_REM_OOB_DATA_REQ     (0x35)
 #define BLE_HCI_EVCODE_SIMPLE_PAIR_COMP     (0x36)
+struct ble_hci_ev_simple_pair_comp {
+    uint8_t status;
+    uint8_t bd_addr[BLE_DEV_ADDR_LEN];
+} __attribute__((packed));
+
 /* NOTE: 0x37 not defined */
 #define BLE_HCI_EVCODE_LNK_SPVN_TMO_CHG     (0x38)
 #define BLE_HCI_EVCODE_ENH_FLUSH_COMP       (0x39)
@@ -2449,6 +2686,31 @@ struct hci_data_hdr
 #define BLE_HCI_PB_MIDDLE                   1
 #define BLE_HCI_PB_FIRST_FLUSH              2
 #define BLE_HCI_PB_FULL                     3
+
+/* Synchronous data packets */
+#define BLE_HCI_SCO_HDR_SZ               3
+#define BLE_HCI_SCO_HANDLE(handle_flags) ((handle_flags) & 0x0fff)
+#define BLE_HCI_SCO_STATUS(handle_flags) (((handle_flags) >> 12) & 0x03)
+
+/* LMP features, page 0 */
+#define BLE_HCI_LMP_FEAT_BREDR_NOT_SUPP (1ULL << 37)
+#define BLE_HCI_LMP_FEAT_EDR_ESCO_2M    (1ULL << 45)
+
+/* BR/EDR events in the event mask */
+#define BLE_HCI_EVMASK_CONN_DONE        (1ULL << 2)
+#define BLE_HCI_EVMASK_CONN_REQUEST     (1ULL << 3)
+#define BLE_HCI_EVMASK_AUTH_CMP         (1ULL << 5)
+#define BLE_HCI_EVMASK_MODE_CHANGE      (1ULL << 19)
+#define BLE_HCI_EVMASK_PIN_CODE_REQ     (1ULL << 21)
+#define BLE_HCI_EVMASK_LINK_KEY_REQ     (1ULL << 22)
+#define BLE_HCI_EVMASK_LINK_KEY_NOTIFY  (1ULL << 23)
+#define BLE_HCI_EVMASK_SYNCH_CONN_COMP  (1ULL << 43)
+#define BLE_HCI_EVMASK_SYNCH_CONN_CHG   (1ULL << 44)
+#define BLE_HCI_EVMASK_IO_CAP_REQ       (1ULL << 48)
+#define BLE_HCI_EVMASK_IO_CAP_RSP       (1ULL << 49)
+#define BLE_HCI_EVMASK_USER_CONFIRM_REQ (1ULL << 50)
+#define BLE_HCI_EVMASK_PASSKEY_REQ      (1ULL << 51)
+#define BLE_HCI_EVMASK_SIMPLE_PAIR_COMP (1ULL << 53)
 
 #define BLE_HCI_ISO_CONN_HANDLE_MASK        (0x07ff)
 #define BLE_HCI_ISO_PB_FLAG_MASK            (0x3000)
