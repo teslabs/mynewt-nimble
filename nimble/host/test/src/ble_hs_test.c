@@ -43,6 +43,12 @@ main(int argc, char **argv)
 
     ble_att_clt_suite();
     ble_att_svr_suite();
+    ble_br_gap_test_suite();
+    ble_br_hfp_hf_test_suite();
+    ble_br_l2cap_test_suite();
+    ble_br_rfcomm_test_suite();
+    ble_br_sco_test_suite();
+    ble_br_sdp_test_suite();
     ble_gap_test_suite_adv();
     ble_gap_test_suite_conn_cancel();
     ble_gap_test_suite_conn_find();

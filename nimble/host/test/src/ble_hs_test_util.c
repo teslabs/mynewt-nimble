@@ -65,7 +65,7 @@ ble_hs_test_util_prev_tx_enqueue(struct os_mbuf *om)
     }
 }
 
-static struct os_mbuf *
+struct os_mbuf *
 ble_hs_test_util_prev_tx_dequeue_once(struct hci_data_hdr *out_hci_hdr)
 {
     struct os_mbuf_pkthdr *omp;
@@ -1923,6 +1923,9 @@ ble_hs_test_util_store_read(int obj_type, const union ble_store_key *key,
     case BLE_STORE_OBJ_TYPE_CCCD:
         ble_sm_test_store_key.cccd = key->cccd;
         break;
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        ble_sm_test_store_key.br_link_key = key->br_link_key;
+        break;
     default:
         return BLE_HS_ENOTSUP;
     }
@@ -1936,6 +1939,9 @@ ble_hs_test_util_store_read(int obj_type, const union ble_store_key *key,
         break;
     case BLE_STORE_OBJ_TYPE_CCCD:
         ble_sm_test_store_value.cccd = value->cccd;
+        break;
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        ble_sm_test_store_value.br_link_key = value->br_link_key;
         break;
     default:
         rc = BLE_HS_ENOTSUP;
@@ -1962,6 +1968,9 @@ ble_hs_test_util_store_write(int obj_type, const union ble_store_value *value)
     case BLE_STORE_OBJ_TYPE_CCCD:
         ble_sm_test_store_value.cccd = value->cccd;
         break;
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        ble_sm_test_store_value.br_link_key = value->br_link_key;
+        break;
     default:
         rc = BLE_HS_ENOTSUP;
         break;
@@ -1984,6 +1993,9 @@ ble_hs_test_util_store_delete(int obj_type, const union ble_store_key *key)
         break;
     case BLE_STORE_OBJ_TYPE_CCCD:
         ble_sm_test_store_key.cccd = key->cccd;
+        break;
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        ble_sm_test_store_key.br_link_key = key->br_link_key;
         break;
     default:
         return BLE_HS_ENOTSUP;

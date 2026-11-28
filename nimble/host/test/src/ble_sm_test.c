@@ -142,6 +142,79 @@ TEST_CASE_SELF(ble_sm_test_case_g2)
     ble_hs_test_util_assert_mbufs_freed(NULL);
 }
 
+/* Core Spec Vol 3 Part H Appendix D: h6 LE SC link key conversion function */
+TEST_CASE_SELF(ble_sm_test_case_h6)
+{
+    uint8_t w[16] = { 0x9b, 0x7d, 0x39, 0x0a, 0xa6, 0x10, 0x10, 0x34,
+                      0x05, 0xad, 0xc8, 0x57, 0xa3, 0x34, 0x02, 0xec };
+    uint8_t key_id[4] = { 0x72, 0x62, 0x65, 0x6c };
+    uint8_t exp[16] = { 0x99, 0x63, 0xb1, 0x80, 0xe2, 0xa9, 0xd3, 0xe8,
+                        0x1c, 0xc9, 0x6d, 0xe7, 0x02, 0xe1, 0x9a, 0x2d };
+    uint8_t res[16];
+    int err;
+
+    err = ble_sm_alg_h6(w, key_id, res);
+    TEST_ASSERT_FATAL(err == 0);
+    TEST_ASSERT(memcmp(res, exp, 16) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+/* Core Spec Vol 3 Part H Appendix D: h7 LE SC link key conversion function */
+TEST_CASE_SELF(ble_sm_test_case_h7)
+{
+    uint8_t salt[16] = { 0x31, 0x70, 0x6d, 0x74, 0x00, 0x00, 0x00, 0x00,
+                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    uint8_t w[16] = { 0x9b, 0x7d, 0x39, 0x0a, 0xa6, 0x10, 0x10, 0x34,
+                      0x05, 0xad, 0xc8, 0x57, 0xa3, 0x34, 0x02, 0xec };
+    uint8_t exp[16] = { 0x11, 0x70, 0xa5, 0x75, 0x2a, 0x8c, 0x99, 0xd2,
+                        0xec, 0xc0, 0xa3, 0xc6, 0x97, 0x35, 0x17, 0xfb };
+    uint8_t res[16];
+    int err;
+
+    err = ble_sm_alg_h7(salt, w, res);
+    TEST_ASSERT_FATAL(err == 0);
+    TEST_ASSERT(memcmp(res, exp, 16) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+/* Core Spec Vol 3 Part H Appendix D: LTK to link key conversion, with and
+ * without CT2
+ */
+TEST_CASE_SELF(ble_sm_test_case_ltk_to_link_key)
+{
+    uint8_t ltk[16] = { 0x64, 0xbf, 0x4f, 0x33, 0x33, 0x6c, 0x06, 0xbd,
+                        0x58, 0x4b, 0x26, 0xe3, 0xbc, 0xf9, 0x8d, 0x36 };
+    uint8_t salt[16] = { 0x31, 0x70, 0x6d, 0x74, 0x00, 0x00, 0x00, 0x00,
+                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    uint8_t tmp1[4] = { 0x31, 0x70, 0x6d, 0x74 };
+    uint8_t lebr[4] = { 0x72, 0x62, 0x65, 0x6c };
+    uint8_t exp_ct2[16] = { 0x35, 0xb8, 0x47, 0x30, 0xf4, 0xf1, 0x39, 0x0a,
+                            0x53, 0x02, 0xa4, 0xdc, 0x79, 0xd3, 0x7a, 0x28 };
+    uint8_t exp_no_ct2[16] = { 0xb0, 0x8f, 0x38, 0xee, 0xaf, 0x30, 0x82, 0x0d,
+                               0xbd, 0xc1, 0x3f, 0x63, 0xef, 0xa4, 0x1c, 0xbc };
+    uint8_t ilk[16];
+    uint8_t res[16];
+    int err;
+
+    /* CT2 = 1: the intermediate key comes from h7 */
+    err = ble_sm_alg_h7(salt, ltk, ilk);
+    TEST_ASSERT_FATAL(err == 0);
+    err = ble_sm_alg_h6(ilk, lebr, res);
+    TEST_ASSERT_FATAL(err == 0);
+    TEST_ASSERT(memcmp(res, exp_ct2, 16) == 0);
+
+    /* CT2 = 0: the intermediate key comes from h6 */
+    err = ble_sm_alg_h6(ltk, tmp1, ilk);
+    TEST_ASSERT_FATAL(err == 0);
+    err = ble_sm_alg_h6(ilk, lebr, res);
+    TEST_ASSERT_FATAL(err == 0);
+    TEST_ASSERT(memcmp(res, exp_no_ct2, 16) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
 TEST_CASE_SELF(ble_sm_test_case_csis_sih)
 {
     uint8_t sirk[16] = { 0xcd, 0xcc, 0x72, 0xdd, 0x86, 0x8c, 0xcd, 0xce,
@@ -527,6 +600,9 @@ TEST_SUITE(ble_sm_gen_test_suite)
     ble_sm_test_case_f5();
     ble_sm_test_case_f6();
     ble_sm_test_case_g2();
+    ble_sm_test_case_h6();
+    ble_sm_test_case_h7();
+    ble_sm_test_case_ltk_to_link_key();
     ble_sm_test_case_csis_sih();
     ble_sm_test_case_csis_sef();
     ble_sm_test_case_csis_s1_sirkenc();

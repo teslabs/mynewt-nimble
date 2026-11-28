@@ -329,6 +329,32 @@ static const struct ble_hs_test_util_hci_ack hci_startup_seq[] = {
     { 0 }
 };
 
+#if MYNEWT_VAL(BLE_BREDR)
+/* What the BR/EDR host sends on a dual-mode controller, once the address
+ * is read.
+ */
+static const uint16_t hci_startup_seq_bredr[] = {
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_INFO_PARAMS, BLE_HCI_OCF_IP_RD_LOC_SUPP_FEAT),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_CTLR_BASEBAND, BLE_HCI_OCF_CB_WR_SSP_MODE),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_LINK_POLICY,
+                                BLE_HCI_OCF_LP_WR_DEFAULT_LINK_POLICY),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_CTLR_BASEBAND,
+                                BLE_HCI_OCF_CB_WR_CLASS_OF_DEVICE),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_CTLR_BASEBAND, BLE_HCI_OCF_CB_WR_LOCAL_NAME),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_CTLR_BASEBAND, BLE_HCI_OCF_CB_WR_EIR),
+    ble_hs_hci_util_opcode_join(BLE_HCI_OGF_CTLR_BASEBAND, BLE_HCI_OCF_CB_WR_SCAN_ENABLE),
+};
+
+/* LMP features of a dual-mode controller: EDR eSCO 2 Mbps mode and LE. */
+static const uint8_t hci_startup_bredr_features[8] = {
+    0x00, 0x00, 0x00, 0x00, 0x40, 0x20, 0x00, 0x00,
+};
+
+static uint16_t ble_hs_test_util_hci_bredr_acl_len;
+static uint16_t ble_hs_test_util_hci_bredr_acl_pkts;
+static int ble_hs_test_util_hci_bredr_shared;
+#endif
+
 void
 ble_hs_test_util_hci_ack_set_seq(const struct ble_hs_test_util_hci_ack *acks)
 {
@@ -349,6 +375,91 @@ ble_hs_test_util_hci_startup_seq_cnt(void)
     return sizeof(hci_startup_seq)/sizeof(hci_startup_seq[0]) - 1;
 }
 
+#if MYNEWT_VAL(BLE_BREDR)
+/**
+ * Selects the controller the next startup sequences are for.
+ *
+ * @param acl_len               The size of the BR/EDR ACL buffers of a
+ *                                  dual-mode controller; 0 for a controller
+ *                                  that only does LE.
+ * @param acl_pkts              The number of BR/EDR ACL buffers.
+ * @param shared                Whether LE has no buffers of its own.
+ */
+void
+ble_hs_test_util_hci_set_bredr(uint16_t acl_len, uint16_t acl_pkts, int shared)
+{
+    ble_hs_test_util_hci_bredr_acl_len = acl_len;
+    ble_hs_test_util_hci_bredr_acl_pkts = acl_pkts;
+    ble_hs_test_util_hci_bredr_shared = shared;
+}
+
+/**
+ * Turns the startup sequence into the one of a dual-mode controller: the
+ * controller reports BR/EDR support and BR/EDR buffers, and acknowledges
+ * the commands of the BR/EDR host.
+ */
+static void
+ble_hs_test_util_hci_ack_set_startup_bredr(void)
+{
+    struct ble_hs_test_util_hci_ack *ack;
+    int num_acks;
+    int num_seq;
+    int i;
+    int j;
+
+    num_acks = 0;
+    for (i = 0; hci_startup_seq[i].opcode != 0; i++) {
+        ack = &ble_hs_test_util_hci_acks[num_acks++];
+        *ack = hci_startup_seq[i];
+
+        switch (ack->opcode) {
+        case ble_hs_hci_util_opcode_join(BLE_HCI_OGF_INFO_PARAMS,
+                                         BLE_HCI_OCF_IP_RD_LOC_SUPP_FEAT):
+            /* Clear the "BR/EDR not supported" feature. */
+            ack->evt_params[4] &= ~0x20;
+            break;
+
+        case ble_hs_hci_util_opcode_join(BLE_HCI_OGF_LE, BLE_HCI_OCF_LE_RD_BUF_SIZE):
+            if (ble_hs_test_util_hci_bredr_shared) {
+                memset(ack->evt_params, 0, ack->evt_params_len);
+            }
+
+            /* The BR/EDR buffers are read after the LE ones. */
+            ack = &ble_hs_test_util_hci_acks[num_acks++];
+            memset(ack, 0, sizeof *ack);
+            ack->opcode = ble_hs_hci_util_opcode_join(BLE_HCI_OGF_INFO_PARAMS,
+                                                      BLE_HCI_OCF_IP_RD_BUF_SIZE);
+            put_le16(ack->evt_params + 0, ble_hs_test_util_hci_bredr_acl_len);
+            put_le16(ack->evt_params + 3, ble_hs_test_util_hci_bredr_acl_pkts);
+            ack->evt_params_len = 7;
+            break;
+
+        case ble_hs_hci_util_opcode_join(BLE_HCI_OGF_INFO_PARAMS,
+                                         BLE_HCI_OCF_IP_RD_BD_ADDR):
+            num_seq =
+                sizeof hci_startup_seq_bredr / sizeof hci_startup_seq_bredr[0];
+            for (j = 0; j < num_seq; j++) {
+                ack = &ble_hs_test_util_hci_acks[num_acks++];
+                memset(ack, 0, sizeof *ack);
+                ack->opcode = hci_startup_seq_bredr[j];
+            }
+
+            /* The first command reads the features. */
+            ack = &ble_hs_test_util_hci_acks[num_acks - num_seq];
+            memcpy(ack->evt_params, hci_startup_bredr_features,
+                   sizeof hci_startup_bredr_features);
+            ack->evt_params_len = sizeof hci_startup_bredr_features;
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    ble_hs_test_util_hci_num_acks = num_acks;
+}
+#endif
+
 void
 ble_hs_test_util_hci_ack_set_startup(void)
 {
@@ -356,6 +467,12 @@ ble_hs_test_util_hci_ack_set_startup(void)
      * corresponding requests when the host task was started.
      */
     ble_hs_test_util_hci_ack_set_seq(hci_startup_seq);
+
+#if MYNEWT_VAL(BLE_BREDR)
+    if (ble_hs_test_util_hci_bredr_acl_len != 0) {
+        ble_hs_test_util_hci_ack_set_startup_bredr();
+    }
+#endif
 }
 
 void

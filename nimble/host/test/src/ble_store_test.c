@@ -425,6 +425,317 @@ TEST_CASE_SELF(ble_store_test_clear)
     ble_hs_test_util_assert_mbufs_freed(NULL);
 }
 
+#if MYNEWT_VAL(BLE_BREDR)
+/**
+ * Makes up a link key for the peer whose public address starts with the
+ * specified byte.
+ */
+static void
+ble_store_test_util_br_link_key(struct ble_store_value_br_link_key *value,
+                                uint8_t addr0, uint8_t key_type)
+{
+    int i;
+
+    memset(value, 0, sizeof *value);
+
+    value->peer_addr.type = BLE_ADDR_PUBLIC;
+    value->peer_addr.val[0] = addr0;
+    for (i = 0; i < sizeof value->key; i++) {
+        value->key[i] = addr0 + i;
+    }
+    value->key_type = key_type;
+}
+
+static void
+ble_store_test_util_verify_br_link_key(const struct ble_store_value_br_link_key *exp)
+{
+    struct ble_store_value_br_link_key value;
+    struct ble_store_key_br_link_key key;
+    int rc;
+
+    ble_store_key_from_value_br_link_key(&key, exp);
+
+    rc = ble_store_read_br_link_key(&key, &value);
+    TEST_ASSERT_FATAL(rc == 0);
+    TEST_ASSERT(ble_addr_cmp(&value.peer_addr, &exp->peer_addr) == 0);
+    TEST_ASSERT(memcmp(value.key, exp->key, sizeof value.key) == 0);
+    TEST_ASSERT(value.key_type == exp->key_type);
+}
+
+static void
+ble_store_test_util_verify_no_br_link_key(const ble_addr_t *addr)
+{
+    struct ble_store_value_br_link_key value;
+    struct ble_store_key_br_link_key key;
+    int rc;
+
+    memset(&key, 0, sizeof key);
+    key.peer_addr = *addr;
+
+    rc = ble_store_read_br_link_key(&key, &value);
+    TEST_ASSERT(rc == BLE_HS_ENOENT);
+}
+
+TEST_CASE_SELF(ble_store_test_br_link_key)
+{
+    struct ble_store_value_br_link_key link_keys[2];
+    struct ble_store_value_br_link_key value;
+    struct ble_store_key_br_link_key key;
+    int rc;
+    int i;
+
+    ble_hs_test_util_init();
+
+    ble_store_test_util_br_link_key(link_keys + 0, 1, 7);
+    ble_store_test_util_br_link_key(link_keys + 1, 2, 8);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 0);
+    ble_store_test_util_verify_no_br_link_key(&link_keys[0].peer_addr);
+
+    /*** Write. */
+    for (i = 0; i < sizeof link_keys / sizeof link_keys[0]; i++) {
+        rc = ble_store_write_br_link_key(link_keys + i);
+        TEST_ASSERT_FATAL(rc == 0);
+    }
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 2);
+
+    /*** Read, by peer and by index. */
+    for (i = 0; i < sizeof link_keys / sizeof link_keys[0]; i++) {
+        ble_store_test_util_verify_br_link_key(link_keys + i);
+
+        memset(&key, 0, sizeof key);
+        key.idx = i;
+        rc = ble_store_read_br_link_key(&key, &value);
+        TEST_ASSERT_FATAL(rc == 0);
+        TEST_ASSERT(ble_addr_cmp(&value.peer_addr, &link_keys[i].peer_addr) == 0);
+        TEST_ASSERT(memcmp(value.key, link_keys[i].key, sizeof value.key) == 0);
+    }
+
+    memset(&key, 0, sizeof key);
+    key.idx = 2;
+    rc = ble_store_read_br_link_key(&key, &value);
+    TEST_ASSERT(rc == BLE_HS_ENOENT);
+
+    /* Only the first match of a peer exists. */
+    ble_store_key_from_value_br_link_key(&key, link_keys + 0);
+    key.idx = 1;
+    rc = ble_store_read_br_link_key(&key, &value);
+    TEST_ASSERT(rc == BLE_HS_ENOENT);
+
+    /*** A new key of a peer replaces its old one. */
+    link_keys[0].key[0] = 0xaa;
+    link_keys[0].key_type = 8;
+    rc = ble_store_write_br_link_key(link_keys + 0);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 2);
+    ble_store_test_util_verify_br_link_key(link_keys + 0);
+    ble_store_test_util_verify_br_link_key(link_keys + 1);
+
+    /*** Delete. */
+    ble_store_key_from_value_br_link_key(&key, link_keys + 0);
+    rc = ble_store_delete_br_link_key(&key);
+    TEST_ASSERT(rc == 0);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 1);
+    ble_store_test_util_verify_no_br_link_key(&link_keys[0].peer_addr);
+    ble_store_test_util_verify_br_link_key(link_keys + 1);
+
+    rc = ble_store_delete_br_link_key(&key);
+    TEST_ASSERT(rc == BLE_HS_ENOENT);
+
+    /* The other object types are not affected. */
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_OUR_SEC) == 0);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_PEER_SEC) == 0);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_CCCD) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+TEST_CASE_SELF(ble_store_test_delete_peer_br_link_key)
+{
+    struct ble_store_value_br_link_key link_keys[2];
+    struct ble_store_value_sec secs[2];
+    int rc;
+    int i;
+
+    ble_hs_test_util_init();
+
+    /* Two link keys; the address of the second one is the one of the second
+     * LE peer, which is a random one and has no meaning on BR/EDR.
+     */
+    ble_store_test_util_br_link_key(link_keys + 0, 1, 7);
+    ble_store_test_util_br_link_key(link_keys + 1, 2, 7);
+
+    memset(secs, 0, sizeof secs);
+    secs[0].peer_addr = link_keys[0].peer_addr;
+    secs[0].ltk_present = 1;
+    secs[1].peer_addr = link_keys[1].peer_addr;
+    secs[1].peer_addr.type = BLE_ADDR_RANDOM;
+    secs[1].ltk_present = 1;
+
+    for (i = 0; i < sizeof secs / sizeof secs[0]; i++) {
+        rc = ble_store_write_our_sec(secs + i);
+        TEST_ASSERT_FATAL(rc == 0);
+        rc = ble_store_write_peer_sec(secs + i);
+        TEST_ASSERT_FATAL(rc == 0);
+    }
+
+    for (i = 0; i < sizeof link_keys / sizeof link_keys[0]; i++) {
+        rc = ble_store_write_br_link_key(link_keys + i);
+        TEST_ASSERT_FATAL(rc == 0);
+    }
+
+    /* Delete the peer with the random address; no link key is its. */
+    rc = ble_store_util_delete_peer(&secs[1].peer_addr);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    ble_store_test_util_verify_peer_deleted(&secs[1].peer_addr);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 2);
+    ble_store_test_util_verify_br_link_key(link_keys + 0);
+    ble_store_test_util_verify_br_link_key(link_keys + 1);
+
+    /* Delete the peer with the public address; its link key goes too. */
+    rc = ble_store_util_delete_peer(&secs[0].peer_addr);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    ble_store_test_util_verify_peer_deleted(&secs[0].peer_addr);
+    ble_store_test_util_verify_no_br_link_key(&link_keys[0].peer_addr);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 1);
+    ble_store_test_util_verify_br_link_key(link_keys + 1);
+
+    /* Delete a peer that only has a link key. */
+    rc = ble_store_util_delete_peer(&link_keys[1].peer_addr);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+TEST_CASE_SELF(ble_store_test_overflow_br_link_key)
+{
+    struct ble_store_value_br_link_key link_keys[MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS) + 2];
+    ble_store_status_fn *status_cb;
+    void *status_arg;
+    int status;
+    int rc;
+    int i;
+
+    ble_hs_test_util_init();
+
+    status_cb = ble_hs_cfg.store_status_cb;
+    status_arg = ble_hs_cfg.store_status_arg;
+
+    for (i = 0; i < sizeof link_keys / sizeof link_keys[0]; i++) {
+        ble_store_test_util_br_link_key(link_keys + i, 1 + i, 7);
+    }
+
+    /*** The application makes no room: the write fails. */
+    ble_hs_cfg.store_status_cb = ble_store_test_util_status_overflow;
+    ble_hs_cfg.store_status_arg = &status;
+    status = BLE_HS_ESTORE_CAP;
+
+    memset(&ble_store_test_status_event, 0, sizeof ble_store_test_status_event);
+
+    for (i = 0; i < MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS); i++) {
+        rc = ble_store_write_br_link_key(link_keys + i);
+        TEST_ASSERT_FATAL(rc == 0);
+    }
+    TEST_ASSERT(ble_store_test_status_event.event_code == 0);
+
+    /* This record should have caused an overflow. */
+    rc = ble_store_write_br_link_key(link_keys + i);
+    TEST_ASSERT(rc == BLE_HS_ESTORE_CAP);
+    TEST_ASSERT(ble_store_test_status_event.event_code == BLE_STORE_EVENT_OVERFLOW);
+    TEST_ASSERT(ble_store_test_status_event.overflow.obj_type ==
+                BLE_STORE_OBJ_TYPE_BR_LINK_KEY);
+    TEST_ASSERT(ble_store_test_status_event.overflow.value == (void *)(link_keys + i));
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) ==
+                MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS));
+    ble_store_test_util_verify_no_br_link_key(&link_keys[i].peer_addr);
+
+    /* A new key for a peer that has one needs no room. */
+    link_keys[0].key[1] = 0xaa;
+    rc = ble_store_write_br_link_key(link_keys + 0);
+    TEST_ASSERT(rc == 0);
+    ble_store_test_util_verify_br_link_key(link_keys + 0);
+
+    /*** The round-robin handler drops the link key stored first. */
+    ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
+    ble_hs_cfg.store_status_arg = NULL;
+
+    rc = ble_store_write_br_link_key(link_keys + i);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) ==
+                MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS));
+    ble_store_test_util_verify_no_br_link_key(&link_keys[0].peer_addr);
+    for (i = 1; i <= MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS); i++) {
+        ble_store_test_util_verify_br_link_key(link_keys + i);
+    }
+
+    /* And the next one stored after it. */
+    rc = ble_store_write_br_link_key(link_keys + i);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) ==
+                MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS));
+    ble_store_test_util_verify_no_br_link_key(&link_keys[1].peer_addr);
+    for (i = 2; i <= MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS) + 1; i++) {
+        ble_store_test_util_verify_br_link_key(link_keys + i);
+    }
+
+    ble_hs_cfg.store_status_cb = status_cb;
+    ble_hs_cfg.store_status_arg = status_arg;
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+TEST_CASE_SELF(ble_store_test_clear_br_link_key)
+{
+    struct ble_store_value_br_link_key link_keys[2];
+    struct ble_store_value_sec sec;
+    int rc;
+    int i;
+
+    ble_hs_test_util_init();
+
+    ble_store_test_util_br_link_key(link_keys + 0, 1, 7);
+    ble_store_test_util_br_link_key(link_keys + 1, 2, 8);
+
+    memset(&sec, 0, sizeof sec);
+    sec.peer_addr = link_keys[0].peer_addr;
+    sec.ltk_present = 1;
+
+    rc = ble_store_write_our_sec(&sec);
+    TEST_ASSERT_FATAL(rc == 0);
+
+    for (i = 0; i < sizeof link_keys / sizeof link_keys[0]; i++) {
+        rc = ble_store_write_br_link_key(link_keys + i);
+        TEST_ASSERT_FATAL(rc == 0);
+    }
+
+    /* Sanity check. */
+    TEST_ASSERT_FATAL(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_OUR_SEC) == 1);
+    TEST_ASSERT_FATAL(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 2);
+
+    /* Ensure store is empty after clear gets called. */
+    rc = ble_store_clear();
+    TEST_ASSERT_FATAL(rc == 0);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_OUR_SEC) == 0);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 0);
+
+    /* Ensure second clear succeeds with no effect. */
+    rc = ble_store_clear();
+    TEST_ASSERT_FATAL(rc == 0);
+    TEST_ASSERT(ble_store_test_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY) == 0);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+#endif
+
 TEST_SUITE(ble_store_suite)
 {
     ble_store_test_peers();
@@ -432,4 +743,10 @@ TEST_SUITE(ble_store_suite)
     ble_store_test_count();
     ble_store_test_overflow();
     ble_store_test_clear();
+#if MYNEWT_VAL(BLE_BREDR)
+    ble_store_test_br_link_key();
+    ble_store_test_delete_peer_br_link_key();
+    ble_store_test_overflow_br_link_key();
+    ble_store_test_clear_br_link_key();
+#endif
 }

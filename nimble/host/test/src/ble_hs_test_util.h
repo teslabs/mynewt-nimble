@@ -95,6 +95,7 @@ struct ble_hs_test_util_att_group_type_entry {
 #define BLE_HS_TEST_CONN_FEAT_NO_CONN_PARAM     (0xFD)
 
 void ble_hs_test_util_prev_tx_enqueue(struct os_mbuf *om);
+struct os_mbuf *ble_hs_test_util_prev_tx_dequeue_once(struct hci_data_hdr *out_hci_hdr);
 struct os_mbuf *ble_hs_test_util_prev_tx_dequeue(void);
 struct os_mbuf *ble_hs_test_util_prev_tx_dequeue_pullup(void);
 int ble_hs_test_util_prev_tx_queue_sz(void);

@@ -66,6 +66,9 @@ void ble_hs_test_util_hci_ack_append_params(uint16_t opcode, uint8_t status,
 void ble_hs_test_util_hci_ack_append(uint16_t opcode, uint8_t status);
 void ble_hs_test_util_hci_ack_set_seq(const struct ble_hs_test_util_hci_ack *acks);
 void ble_hs_test_util_hci_ack_set_startup(void);
+#if MYNEWT_VAL(BLE_BREDR)
+void ble_hs_test_util_hci_set_bredr(uint16_t acl_len, uint16_t acl_pkts, int shared);
+#endif
 void ble_hs_test_util_hci_ack_set_disc(uint8_t own_addr_type,
                                        int fail_idx, uint8_t fail_status);
 void ble_hs_test_util_hci_ack_set_disconnect(uint8_t hci_status);

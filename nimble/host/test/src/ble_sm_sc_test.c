@@ -5510,6 +5510,274 @@ TEST_CASE_SELF(ble_sm_sc_us_pk_iio2_rio0_b1_iat2_rat2_ik7_rk3)
     ble_hs_test_util_assert_mbufs_freed(NULL);
 }
 
+#if MYNEWT_VAL(BLE_BREDR)
+/**
+ * Secure connections pairing
+ * Master: peer
+ * Pair algorithm: just works
+ * Initiator IO capabilities: 3
+ * Responder IO capabilities: 3
+ * Bonding: true
+ * Initiator address type: 0
+ * Responder address type: 0
+ * Initiator key distribution: 5
+ * Responder key distribution: 7
+ *
+ * The peer asks for the BR/EDR link key to be derived from the LTK.
+ */
+static void
+ble_sm_sc_test_util_link_key_params(struct ble_sm_test_params *params)
+{
+    *params = (struct ble_sm_test_params) {
+        .init_id_addr = {
+            0xca, 0x61, 0xa0, 0x67, 0x94, 0xe0,
+        },
+        .resp_id_addr = {
+            0x33, 0x22, 0x11, 0x00, 0x45, 0x0a,
+        },
+        .pair_req = {
+            .io_cap = 0x03,
+            .oob_data_flag = 0x00,
+            .authreq = 0x09,
+            .max_enc_key_size = 0x10,
+            .init_key_dist = 0x0d,
+            .resp_key_dist = 0x0f,
+        },
+        .pair_rsp = {
+            .io_cap = 0x03,
+            .oob_data_flag = 0x00,
+            .authreq = 0x09,
+            .max_enc_key_size = 0x10,
+            .init_key_dist = 0x05,
+            .resp_key_dist = 0x07,
+        },
+        .our_priv_key = {
+            0x54, 0x8d, 0x20, 0xb8, 0x97, 0x0b, 0xbc, 0x43,
+            0x9a, 0xad, 0x10, 0x6f, 0x60, 0x74, 0xd4, 0x6a,
+            0x55, 0xc1, 0x7a, 0x17, 0x8b, 0x60, 0xe0, 0xb4,
+            0x5a, 0xe6, 0x58, 0xf1, 0xea, 0x12, 0xd9, 0xfb,
+        },
+        .public_key_req = {
+            .x = {
+                0xbc, 0xf2, 0xd8, 0xa5, 0xdb, 0xa3, 0x95, 0x6c,
+                0x99, 0xf9, 0x11, 0x0d, 0x4d, 0x2e, 0xf0, 0xbd,
+                0xee, 0x9b, 0x69, 0xb6, 0xcd, 0x88, 0x74, 0xbe,
+                0x40, 0xe8, 0xe5, 0xcc, 0xdc, 0x88, 0x44, 0x53,
+            },
+            .y = {
+                0xbf, 0xa9, 0x82, 0x0e, 0x18, 0x7a, 0x14, 0xf8,
+                0x77, 0xfd, 0x8e, 0x92, 0x2a, 0xf8, 0x5d, 0x39,
+                0xd1, 0x6d, 0x92, 0x1f, 0x38, 0x74, 0x99, 0xdc,
+                0x6c, 0x2c, 0x94, 0x23, 0xf9, 0x72, 0x56, 0xab,
+            },
+        },
+        .public_key_rsp = {
+            .x = {
+                0x72, 0x8c, 0xd1, 0x88, 0xd7, 0xbe, 0x49, 0xb2,
+                0xc5, 0x5c, 0x95, 0xb3, 0x64, 0xe0, 0x12, 0x32,
+                0xb6, 0xc9, 0x47, 0x63, 0x37, 0x38, 0x5b, 0x9c,
+                0x1e, 0x1b, 0x1a, 0x06, 0x09, 0xe2, 0x31, 0x85,
+            },
+            .y = {
+                0x19, 0x3a, 0x29, 0x69, 0x62, 0xd6, 0x30, 0xe7,
+                0xe8, 0x48, 0x63, 0xdc, 0x00, 0x73, 0x0a, 0x70,
+                0x7d, 0x2e, 0x29, 0xcc, 0x91, 0x77, 0x71, 0xb1,
+                0x75, 0xb8, 0xf7, 0xdc, 0xb0, 0xe2, 0x91, 0x10,
+            },
+        },
+        .confirm_rsp[0] = {
+            .value = {
+                0x82, 0xed, 0xd0, 0x62, 0x91, 0x3d, 0x96, 0x7f,
+                0x13, 0xc5, 0x0d, 0x02, 0x2b, 0x5e, 0x43, 0x16,
+            },
+        },
+        .random_req[0] = {
+            .value = {
+                0xa4, 0x34, 0x5f, 0xb3, 0xaf, 0x73, 0x43, 0x64,
+                0xcd, 0x19, 0x1b, 0x5b, 0x87, 0x58, 0x31, 0x66,
+            },
+        },
+        .random_rsp[0] = {
+            .value = {
+                0xc0, 0x91, 0xfb, 0xb3, 0x77, 0xa2, 0x02, 0x0b,
+                0xc6, 0xcd, 0x6c, 0x04, 0x51, 0x45, 0x45, 0x39,
+            },
+        },
+        .dhkey_check_req = {
+            .value = {
+                0x82, 0x65, 0x1d, 0x02, 0xed, 0x89, 0x13, 0x44,
+                0x04, 0x1a, 0x14, 0x7c, 0x32, 0x9a, 0x1e, 0x7d,
+            },
+        },
+        .dhkey_check_rsp = {
+            .value = {
+                0x06, 0x3c, 0x28, 0x4a, 0xe5, 0x48, 0x4b, 0x51,
+                0x65, 0x4e, 0x14, 0x5e, 0x2f, 0xdd, 0xfa, 0x22,
+            },
+        },
+        .id_info_req = {
+            .irk = {
+                0xef, 0x8d, 0xe2, 0x16, 0x4f, 0xec, 0x43, 0x0d,
+                0xbf, 0x5b, 0xdd, 0x34, 0xc0, 0x53, 0x1e, 0xb8,
+            },
+        },
+        .id_addr_info_req = {
+            .addr_type = 0,
+            .bd_addr = {
+                0x33, 0x22, 0x11, 0x00, 0x45, 0x0a,
+            },
+        },
+        .sign_info_req = {
+            .sig_key = {
+                0x40, 0x53, 0xeb, 0x7a, 0x4d, 0x8e, 0xa2, 0xb5,
+                0xca, 0xa1, 0xb6, 0xae, 0x7e, 0x6a, 0x4d, 0xd9,
+            },
+        },
+        .sign_info_rsp = {
+            .sig_key = {
+                0xbc, 0x13, 0x4b, 0x45, 0xda, 0x76, 0x5b, 0xcd,
+                0xc2, 0x43, 0x81, 0xb8, 0xc3, 0x68, 0x12, 0xbb,
+            },
+        },
+        .ltk = {
+            0x63, 0x59, 0x8a, 0x14, 0x09, 0x4b, 0x94, 0x6e,
+            0xff, 0xae, 0x5e, 0x53, 0x86, 0x02, 0xa3, 0x6c,
+        },
+        .pair_alg = BLE_SM_PAIR_ALG_JW,
+        .authenticated = 0,
+        .passkey_info = {
+            .passkey = {
+                .action = BLE_SM_IOACT_NONE,
+            },
+        },
+    };
+}
+
+/**
+ * Pairs on a dual-mode controller and verifies the BR/EDR link key that is
+ * kept for the peer.
+ *
+ * @param exp_link_key          The link key; NULL if none is expected.
+ */
+static void
+ble_sm_sc_test_util_link_key(struct ble_sm_test_params *params, const uint8_t *exp_link_key)
+{
+    struct ble_store_value_br_link_key value;
+    struct ble_store_key_br_link_key key;
+    ble_addr_t peer_addr;
+    int count;
+    int rc;
+
+    ble_hs_test_util_hci_set_bredr(64, 200, 0);
+    ble_sm_test_util_peer_sc_good_once(params);
+    ble_hs_test_util_hci_set_bredr(0, 0, 0);
+
+    peer_addr.type = BLE_ADDR_PUBLIC;
+    memcpy(peer_addr.val, params->init_id_addr, sizeof peer_addr.val);
+
+    memset(&key, 0, sizeof key);
+    key.peer_addr = peer_addr;
+    rc = ble_store_read_br_link_key(&key, &value);
+
+    if (exp_link_key == NULL) {
+        TEST_ASSERT(rc == BLE_HS_ENOENT);
+    } else {
+        TEST_ASSERT_FATAL(rc == 0);
+        TEST_ASSERT(memcmp(value.key, exp_link_key, sizeof value.key) == 0);
+        TEST_ASSERT(value.key_type == BLE_HCI_LINK_KEY_TYPE_UNAUTH_P256);
+    }
+
+    rc = ble_store_util_count(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, &count);
+    TEST_ASSERT_FATAL(rc == 0);
+    TEST_ASSERT(count == (exp_link_key != NULL));
+
+    /* Verify the link key goes with the bond. */
+    rc = ble_store_util_delete_peer(&peer_addr);
+    TEST_ASSERT(rc == 0);
+
+    rc = ble_store_read_br_link_key(&key, &value);
+    TEST_ASSERT(rc == BLE_HS_ENOENT);
+    TEST_ASSERT(ble_hs_test_util_num_our_secs() == 0);
+    TEST_ASSERT(ble_hs_test_util_num_peer_secs() == 0);
+}
+
+/**
+ * Both devices distribute the link key; the peer does not support the h7
+ * function, so the link key is derived with h6 only.
+ */
+TEST_CASE_SELF(ble_sm_sc_peer_jw_link_key_h6)
+{
+    static const uint8_t link_key[16] = {
+        0x01, 0x51, 0xc9, 0x61, 0x43, 0x2d, 0xc5, 0x59,
+        0x20, 0xd0, 0xf8, 0xc5, 0x70, 0x1e, 0x20, 0x5a,
+    };
+    static const uint8_t dhkey_check_rsp[16] = {
+        0x5a, 0x90, 0xd2, 0xbe, 0x23, 0x7a, 0x98, 0xf9,
+        0x29, 0xb9, 0xcd, 0x04, 0xbc, 0x99, 0xb5, 0x9e,
+    };
+    struct ble_sm_test_params params;
+
+    ble_sm_sc_test_util_link_key_params(&params);
+
+    /* We set the LinkKey bits and CT2; our check value changes with it. */
+    params.pair_rsp.authreq = 0x29;
+    params.pair_rsp.init_key_dist = 0x0d;
+    params.pair_rsp.resp_key_dist = 0x0f;
+    memcpy(params.dhkey_check_rsp.value, dhkey_check_rsp, 16);
+
+    ble_sm_sc_test_util_link_key(&params, link_key);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+/**
+ * Both devices distribute the link key and support the h7 function.
+ */
+TEST_CASE_SELF(ble_sm_sc_peer_jw_link_key_h7)
+{
+    static const uint8_t link_key[16] = {
+        0xbe, 0x6a, 0xfd, 0xe6, 0xd1, 0x56, 0x5b, 0x88,
+        0x1a, 0x94, 0x47, 0x5f, 0x7f, 0x67, 0x50, 0x68,
+    };
+    static const uint8_t dhkey_check_req[16] = {
+        0xd3, 0xf6, 0x3d, 0x93, 0xe5, 0xb9, 0x3d, 0xad,
+        0x3a, 0xd0, 0x1a, 0xc0, 0xb7, 0x8c, 0x0f, 0xf9,
+    };
+    static const uint8_t dhkey_check_rsp[16] = {
+        0x5a, 0x90, 0xd2, 0xbe, 0x23, 0x7a, 0x98, 0xf9,
+        0x29, 0xb9, 0xcd, 0x04, 0xbc, 0x99, 0xb5, 0x9e,
+    };
+    struct ble_sm_test_params params;
+
+    ble_sm_sc_test_util_link_key_params(&params);
+
+    /* Both set the LinkKey bits and CT2; the check values change with it. */
+    params.pair_req.authreq = 0x29;
+    params.pair_rsp.authreq = 0x29;
+    params.pair_rsp.init_key_dist = 0x0d;
+    params.pair_rsp.resp_key_dist = 0x0f;
+    memcpy(params.dhkey_check_req.value, dhkey_check_req, 16);
+    memcpy(params.dhkey_check_rsp.value, dhkey_check_rsp, 16);
+
+    ble_sm_sc_test_util_link_key(&params, link_key);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+
+/**
+ * Only the peer distributes the link key: none is derived.
+ */
+TEST_CASE_SELF(ble_sm_sc_peer_jw_no_link_key)
+{
+    struct ble_sm_test_params params;
+
+    ble_sm_sc_test_util_link_key_params(&params);
+    ble_sm_sc_test_util_link_key(&params, NULL);
+
+    ble_hs_test_util_assert_mbufs_freed(NULL);
+}
+#endif
+
 TEST_SUITE(ble_sm_sc_test_suite)
 {
     /*** No privacy. */
@@ -5525,6 +5793,13 @@ TEST_SUITE(ble_sm_sc_test_suite)
     ble_sm_sc_us_pk_iio2_rio4_b1_iat0_rat0_ik7_rk5();
     ble_sm_sc_us_pk_iio0_rio4_b1_iat0_rat0_ik7_rk5();
     ble_sm_sc_us_nc_iio1_rio4_b1_iat0_rat0_ik7_rk5();
+
+#if MYNEWT_VAL(BLE_BREDR)
+    /*** Cross-transport key derivation. */
+    ble_sm_sc_peer_jw_link_key_h6();
+    ble_sm_sc_peer_jw_link_key_h7();
+    ble_sm_sc_peer_jw_no_link_key();
+#endif
 
     /*** Privacy (id = public). */
     // FIXME: needs to be fixed due to fix for address type used

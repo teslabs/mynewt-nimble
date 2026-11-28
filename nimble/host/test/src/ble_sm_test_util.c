@@ -2863,7 +2863,7 @@ ble_sm_test_util_peer_sc_good_once_no_init(struct ble_sm_test_params *params,
     ble_hs_test_util_conn_disconnect(2);
 }
 
-static void
+void
 ble_sm_test_util_peer_sc_good_once(struct ble_sm_test_params *params)
 {
     struct ble_sm_test_util_entity peer_entity;

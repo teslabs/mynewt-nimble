@@ -24,6 +24,12 @@
 
 TEST_SUITE_DECL(ble_att_clt_suite);
 TEST_SUITE_DECL(ble_att_svr_suite);
+TEST_SUITE_DECL(ble_br_gap_test_suite);
+TEST_SUITE_DECL(ble_br_hfp_hf_test_suite);
+TEST_SUITE_DECL(ble_br_l2cap_test_suite);
+TEST_SUITE_DECL(ble_br_rfcomm_test_suite);
+TEST_SUITE_DECL(ble_br_sco_test_suite);
+TEST_SUITE_DECL(ble_br_sdp_test_suite);
 TEST_SUITE_DECL(ble_gap_test_suite_adv);
 TEST_SUITE_DECL(ble_gap_test_suite_conn_cancel);
 TEST_SUITE_DECL(ble_gap_test_suite_conn_find);
