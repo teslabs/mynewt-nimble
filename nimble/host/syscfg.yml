@@ -573,6 +573,10 @@ syscfg.defs:
         description: >
             The largest RFCOMM frame payload the host accepts.
         value: 127
+    BLE_BREDR_SCO:
+        description: >
+            Enables synchronous (SCO and eSCO) connections.
+        value: 0
 
 syscfg.logs:
     BLE_HS_LOG:

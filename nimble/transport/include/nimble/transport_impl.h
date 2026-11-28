@@ -35,6 +35,10 @@ extern int ble_transport_to_ll_iso_impl(struct os_mbuf *om);
 extern int ble_transport_to_hs_evt_impl(void *buf);
 extern int ble_transport_to_hs_acl_impl(struct os_mbuf *om);
 extern int ble_transport_to_hs_iso_impl(struct os_mbuf *om);
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+extern int ble_transport_to_ll_sco_impl(const uint8_t *pkt, uint16_t len);
+extern int ble_transport_to_hs_sco_impl(const uint8_t *pkt, uint16_t len);
+#endif
 
 #ifdef __cplusplus
 }

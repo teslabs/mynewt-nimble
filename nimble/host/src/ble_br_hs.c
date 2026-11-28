@@ -350,6 +350,11 @@ ble_br_hs_rx_evt(const struct ble_hci_ev *ev)
     }
 
     rc = ble_br_gap_rx_evt(ev->opcode, ev->data, ev->length);
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+    if (rc == BLE_HS_ENOTSUP) {
+        rc = ble_br_sco_rx_evt(ev->opcode, ev->data, ev->length);
+    }
+#endif
 
     return rc;
 }
@@ -370,6 +375,11 @@ ble_br_hs_rx_disconn_cmp(const struct ble_hci_ev_disconn_cmp *ev)
         return 0;
     }
 
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+    if (ev->status == 0) {
+        return ble_br_sco_rx_disconn_cmp(handle, ev->reason);
+    }
+#endif
 
     return BLE_HS_ENOENT;
 }
@@ -462,6 +472,9 @@ ble_br_hs_reset(void)
         }
     }
 
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+    ble_br_sco_reset();
+#endif
     ble_br_gap_reset();
 
     ble_br_hs_supported = false;
@@ -480,6 +493,10 @@ ble_br_hs_init(void)
     ble_br_hs_acl_avail = 0;
 
     ble_br_gap_init();
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+    ble_br_sco_set_ops(NULL);
+    ble_br_sco_reset();
+#endif
     ble_br_l2cap_init();
     ble_br_sdp_init();
     ble_br_rfcomm_init();

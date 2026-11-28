@@ -650,10 +650,14 @@ ble_br_gap_rx_conn_request(const struct ble_hci_ev_conn_request *ev)
     int rc;
 
     if (ev->link_type != BLE_HCI_LINK_TYPE_ACL) {
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+        ble_br_sco_rx_conn_request(ev);
+#else
         memcpy(reject.bd_addr, ev->bd_addr, BLE_DEV_ADDR_LEN);
         reject.reason = BLE_ERR_CONN_REJ_RESOURCES;
         ble_br_hs_cmd(BLE_HCI_OGF_LINK_CTRL, BLE_HCI_OCF_REJECT_SYNCH_CONN_REQ,
                       &reject, sizeof(reject), NULL, 0);
+#endif
         return;
     }
 
@@ -724,6 +728,9 @@ ble_br_gap_rx_disconn_cmp(struct ble_br_conn *conn, uint8_t reason)
     conn->flags &= ~BLE_BR_CONN_F_CONNECTED;
 
     /* The audio first: its end is told while its profile is still up */
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+    ble_br_sco_conn_broken(conn->addr);
+#endif
     ble_br_l2cap_conn_broken(conn);
     ble_br_conn_free(conn);
 

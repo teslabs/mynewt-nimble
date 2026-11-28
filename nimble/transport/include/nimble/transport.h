@@ -62,6 +62,23 @@ int ble_transport_to_hs_evt(void *buf);
 int ble_transport_to_hs_acl(struct os_mbuf *om);
 int ble_transport_to_hs_iso(struct os_mbuf *om);
 
+#if MYNEWT_VAL(BLE_BREDR_SCO)
+/* Synchronous data: a whole HCI packet, only valid during the call. The host
+ * side is called from the context of the transport.
+ */
+static inline int
+ble_transport_to_ll_sco(const uint8_t *pkt, uint16_t len)
+{
+    return ble_transport_to_ll_sco_impl(pkt, len);
+}
+
+static inline int
+ble_transport_to_hs_sco(const uint8_t *pkt, uint16_t len)
+{
+    return ble_transport_to_hs_sco_impl(pkt, len);
+}
+#endif
+
 #ifdef __cplusplus
 }
 #endif

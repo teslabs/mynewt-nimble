@@ -214,6 +214,31 @@ int ble_br_rfcomm_send(struct ble_br_rfcomm_dlc *dlc, const uint8_t *data,
                        uint16_t len);
 uint16_t ble_br_rfcomm_dlc_conn_handle(const struct ble_br_rfcomm_dlc *dlc);
 
+/* Synchronous connections (ble_br_sco.c) */
+
+struct ble_br_sco_params {
+    uint16_t max_latency;
+    uint8_t retrans_effort;
+    uint16_t pkt_type;
+};
+
+struct ble_br_sco_ops {
+    /* Whether to accept a connection, and how */
+    int (*accept)(const uint8_t *addr, uint8_t link_type,
+                  struct ble_br_sco_params *params);
+    void (*connected)(const uint8_t *addr, int status, uint16_t sco_handle);
+    void (*disconnected)(uint16_t sco_handle, int reason);
+};
+
+void ble_br_sco_reset(void);
+void ble_br_sco_set_ops(const struct ble_br_sco_ops *ops);
+int ble_br_sco_connect(uint16_t conn_handle, const struct ble_br_sco_params *params);
+int ble_br_sco_disconnect(uint16_t sco_handle);
+void ble_br_sco_rx_conn_request(const struct ble_hci_ev_conn_request *ev);
+int ble_br_sco_rx_evt(uint8_t code, const void *data, unsigned int len);
+int ble_br_sco_rx_disconn_cmp(uint16_t handle, uint8_t reason);
+void ble_br_sco_conn_broken(const uint8_t *addr);
+
 #ifdef __cplusplus
 }
 #endif
