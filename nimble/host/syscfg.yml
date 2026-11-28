@@ -539,6 +539,29 @@ syscfg.defs:
         restrictions:
             - 'BLE_ISO_BROADCAST_SOURCE if 0'
 
+    # BR/EDR settings.
+    BLE_BREDR:
+        description: >
+            Enables BR/EDR (Bluetooth Classic) support in the host, next to
+            LE, on a dual-mode controller.
+        value: 0
+    BLE_BREDR_MAX_CONNECTIONS:
+        description: >
+            The maximum number of concurrent BR/EDR ACL connections.
+        value: 1
+    BLE_BREDR_MAX_LINK_KEYS:
+        description: >
+            The number of BR/EDR link keys the store keeps.
+        value: 2
+    BLE_BREDR_L2CAP_MAX_CHANS:
+        description: >
+            The number of BR/EDR L2CAP channels, over all connections.
+        value: 4
+    BLE_BREDR_L2CAP_MTU:
+        description: >
+            The largest SDU the host accepts on a BR/EDR L2CAP channel.
+        value: 672
+
 syscfg.logs:
     BLE_HS_LOG:
         module: MYNEWT_VAL(BLE_HS_LOG_MOD)

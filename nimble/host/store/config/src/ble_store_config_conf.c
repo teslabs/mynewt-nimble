@@ -57,6 +57,14 @@ static struct conf_handler ble_store_config_conf_handler = {
 #define BLE_STORE_CONFIG_CCCD_SET_ENCODE_SZ \
     (MYNEWT_VAL(BLE_STORE_MAX_CCCDS) * BLE_STORE_CONFIG_CCCD_ENCODE_SZ + 1)
 
+#if MYNEWT_VAL(BLE_BREDR)
+#define BLE_STORE_CONFIG_BR_LINK_KEY_ENCODE_SZ                                \
+    BASE64_ENCODE_SIZE(sizeof(struct ble_store_value_br_link_key))
+
+#define BLE_STORE_CONFIG_BR_LINK_KEY_SET_ENCODE_SZ                            \
+    (MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS) * BLE_STORE_CONFIG_BR_LINK_KEY_ENCODE_SZ + 1)
+#endif
+
 static void
 ble_store_config_serialize_arr(const void *arr, int obj_sz, int num_objs,
                                char *out_buf, int buf_sz)
@@ -118,6 +126,14 @@ ble_store_config_conf_set(int argc, char **argv, char *val)
                     sizeof *ble_store_config_cccds,
                     &ble_store_config_num_cccds);
             return rc;
+#if MYNEWT_VAL(BLE_BREDR)
+        } else if (strcmp(argv[0], "br_link_key") == 0) {
+            rc = ble_store_config_deserialize_arr(
+                val, ble_store_config_br_link_keys,
+                sizeof *ble_store_config_br_link_keys,
+                &ble_store_config_num_br_link_keys);
+            return rc;
+#endif
         }
     }
     return OS_ENOENT;
@@ -130,6 +146,9 @@ ble_store_config_conf_export(void (*func)(char *name, char *val),
     union {
         char sec[BLE_STORE_CONFIG_SEC_SET_ENCODE_SZ];
         char cccd[BLE_STORE_CONFIG_CCCD_SET_ENCODE_SZ];
+#if MYNEWT_VAL(BLE_BREDR)
+        char br_link_key[BLE_STORE_CONFIG_BR_LINK_KEY_SET_ENCODE_SZ];
+#endif
     } buf;
 
     ble_store_config_serialize_arr(ble_store_config_our_secs,
@@ -152,6 +171,14 @@ ble_store_config_conf_export(void (*func)(char *name, char *val),
                                    buf.cccd,
                                    sizeof buf.cccd);
     func("ble_hs/cccd", buf.cccd);
+
+#if MYNEWT_VAL(BLE_BREDR)
+    ble_store_config_serialize_arr(ble_store_config_br_link_keys,
+                                   sizeof *ble_store_config_br_link_keys,
+                                   ble_store_config_num_br_link_keys,
+                                   buf.br_link_key, sizeof buf.br_link_key);
+    func("ble_hs/br_link_key", buf.br_link_key);
+#endif
 
     return 0;
 }
@@ -219,6 +246,25 @@ ble_store_config_persist_cccds(void)
     if (rc != 0) {
         return BLE_HS_ESTORE_FAIL;
     }
+
+    return 0;
+}
+
+int
+ble_store_config_persist_br_link_keys(void)
+{
+#if MYNEWT_VAL(BLE_BREDR)
+    char buf[BLE_STORE_CONFIG_BR_LINK_KEY_SET_ENCODE_SZ];
+    int rc;
+
+    ble_store_config_serialize_arr(
+        ble_store_config_br_link_keys, sizeof *ble_store_config_br_link_keys,
+        ble_store_config_num_br_link_keys, buf, sizeof buf);
+    rc = conf_save_one("ble_hs/br_link_key", buf);
+    if (rc != 0) {
+        return BLE_HS_ESTORE_FAIL;
+    }
+#endif
 
     return 0;
 }

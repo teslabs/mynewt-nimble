@@ -285,6 +285,50 @@ ble_store_delete_cccd(const struct ble_store_key_cccd *key)
     return rc;
 }
 
+int
+ble_store_read_br_link_key(const struct ble_store_key_br_link_key *key,
+                           struct ble_store_value_br_link_key *out_value)
+{
+    union ble_store_value *store_value;
+    union ble_store_key *store_key;
+    int rc;
+
+    store_key = (void *)key;
+    store_value = (void *)out_value;
+    rc = ble_store_read(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, store_key, store_value);
+    return rc;
+}
+
+int
+ble_store_write_br_link_key(const struct ble_store_value_br_link_key *value)
+{
+    union ble_store_value *store_value;
+    int rc;
+
+    store_value = (void *)value;
+    rc = ble_store_write(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, store_value);
+    return rc;
+}
+
+int
+ble_store_delete_br_link_key(const struct ble_store_key_br_link_key *key)
+{
+    union ble_store_key *store_key;
+    int rc;
+
+    store_key = (void *)key;
+    rc = ble_store_delete(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, store_key);
+    return rc;
+}
+
+void
+ble_store_key_from_value_br_link_key(struct ble_store_key_br_link_key *out_key,
+                                     const struct ble_store_value_br_link_key *value)
+{
+    out_key->peer_addr = value->peer_addr;
+    out_key->idx = 0;
+}
+
 void
 ble_store_key_from_value_cccd(struct ble_store_key_cccd *out_key,
                               const struct ble_store_value_cccd *value)
@@ -317,6 +361,10 @@ ble_store_key_from_value(int obj_type,
         ble_store_key_from_value_cccd(&out_key->cccd, &value->cccd);
         break;
 
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        ble_store_key_from_value_br_link_key(&out_key->br_link_key, &value->br_link_key);
+        break;
+
     default:
         BLE_HS_DBG_ASSERT(0);
         break;
@@ -345,6 +393,10 @@ ble_store_iterate(int obj_type,
     case BLE_STORE_OBJ_TYPE_CCCD:
         key.cccd.peer_addr = *BLE_ADDR_ANY;
         pidx = &key.cccd.idx;
+        break;
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        key.br_link_key.peer_addr = *BLE_ADDR_ANY;
+        pidx = &key.br_link_key.idx;
         break;
     default:
         BLE_HS_DBG_ASSERT(0);
@@ -390,6 +442,9 @@ ble_store_clear(void)
         BLE_STORE_OBJ_TYPE_OUR_SEC,
         BLE_STORE_OBJ_TYPE_PEER_SEC,
         BLE_STORE_OBJ_TYPE_CCCD,
+#if MYNEWT_VAL(BLE_BREDR)
+        BLE_STORE_OBJ_TYPE_BR_LINK_KEY,
+#endif
     };
     union ble_store_key key;
     int obj_type;

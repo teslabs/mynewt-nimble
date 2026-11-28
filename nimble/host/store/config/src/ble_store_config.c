@@ -47,6 +47,12 @@ struct ble_store_value_cccd
 
 int ble_store_config_num_cccds;
 
+#if MYNEWT_VAL(BLE_BREDR)
+struct ble_store_value_br_link_key ble_store_config_br_link_keys[MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS)];
+#endif
+
+int ble_store_config_num_br_link_keys;
+
 /*****************************************************************************
  * $sec                                                                      *
  *****************************************************************************/
@@ -448,6 +454,121 @@ ble_store_config_write_cccd(const struct ble_store_value_cccd *value_cccd)
 }
 
 /*****************************************************************************
+ * $br_link_key                                                              *
+ *****************************************************************************/
+
+#if MYNEWT_VAL(BLE_BREDR)
+static int
+ble_store_config_find_br_link_key(const struct ble_store_key_br_link_key *key)
+{
+    struct ble_store_value_br_link_key *link_key;
+    int skipped;
+    int i;
+
+    skipped = 0;
+    for (i = 0; i < ble_store_config_num_br_link_keys; i++) {
+        link_key = ble_store_config_br_link_keys + i;
+
+        if (ble_addr_cmp(&key->peer_addr, BLE_ADDR_ANY)) {
+            if (ble_addr_cmp(&link_key->peer_addr, &key->peer_addr)) {
+                continue;
+            }
+        }
+
+        if (key->idx > skipped) {
+            skipped++;
+            continue;
+        }
+
+        return i;
+    }
+    return -1;
+}
+#endif
+
+static int
+ble_store_config_delete_br_link_key(const struct ble_store_key_br_link_key *key)
+{
+#if MYNEWT_VAL(BLE_BREDR)
+    int idx;
+    int rc;
+
+    idx = ble_store_config_find_br_link_key(key);
+    if (idx < 0) {
+        return BLE_HS_ENOENT;
+    }
+
+    rc = ble_store_config_delete_obj(ble_store_config_br_link_keys,
+                                     sizeof *ble_store_config_br_link_keys,
+                                     idx, &ble_store_config_num_br_link_keys);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = ble_store_config_persist_br_link_keys();
+    if (rc != 0) {
+        return rc;
+    }
+    return 0;
+#else
+    return BLE_HS_ENOENT;
+#endif
+}
+
+static int
+ble_store_config_read_br_link_key(const struct ble_store_key_br_link_key *key,
+                                  struct ble_store_value_br_link_key *value)
+{
+#if MYNEWT_VAL(BLE_BREDR)
+    int idx;
+
+    idx = ble_store_config_find_br_link_key(key);
+    if (idx == -1) {
+        return BLE_HS_ENOENT;
+    }
+
+    *value = ble_store_config_br_link_keys[idx];
+    return 0;
+#else
+    return BLE_HS_ENOENT;
+#endif
+}
+
+static int
+ble_store_config_write_br_link_key(const struct ble_store_value_br_link_key *value)
+{
+#if MYNEWT_VAL(BLE_BREDR)
+    struct ble_store_key_br_link_key key;
+    int idx;
+    int rc;
+
+    ble_store_key_from_value_br_link_key(&key, value);
+    idx = ble_store_config_find_br_link_key(&key);
+    if (idx == -1) {
+        if (ble_store_config_num_br_link_keys >= MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS)) {
+            BLE_HS_LOG(DEBUG, "error persisting link key; too many entries (%d)\n",
+                       ble_store_config_num_br_link_keys);
+            return BLE_HS_ESTORE_CAP;
+        }
+
+        idx = ble_store_config_num_br_link_keys;
+        ble_store_config_num_br_link_keys++;
+    }
+
+    ble_store_config_br_link_keys[idx] = *value;
+
+    rc = ble_store_config_persist_br_link_keys();
+    if (rc != 0) {
+        return rc;
+    }
+
+    return 0;
+#else
+    return BLE_HS_ENOENT;
+#endif
+}
+
+/*****************************************************************************
  * $api                                                                      *
  *****************************************************************************/
 
@@ -489,6 +610,10 @@ ble_store_config_read(int obj_type, const union ble_store_key *key,
         rc = ble_store_config_read_cccd(&key->cccd, &value->cccd);
         return rc;
 
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        rc = ble_store_config_read_br_link_key(&key->br_link_key, &value->br_link_key);
+        return rc;
+
     default:
         return BLE_HS_ENOTSUP;
     }
@@ -518,6 +643,10 @@ ble_store_config_write(int obj_type, const union ble_store_value *val)
         rc = ble_store_config_write_cccd(&val->cccd);
         return rc;
 
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        rc = ble_store_config_write_br_link_key(&val->br_link_key);
+        return rc;
+
     default:
         return BLE_HS_ENOTSUP;
     }
@@ -541,6 +670,10 @@ ble_store_config_delete(int obj_type, const union ble_store_key *key)
         rc = ble_store_config_delete_cccd(&key->cccd);
         return rc;
 
+    case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+        rc = ble_store_config_delete_br_link_key(&key->br_link_key);
+        return rc;
+
     default:
         return BLE_HS_ENOTSUP;
     }
@@ -560,6 +693,7 @@ ble_store_config_init(void)
     ble_store_config_num_our_secs = 0;
     ble_store_config_num_peer_secs = 0;
     ble_store_config_num_cccds = 0;
+    ble_store_config_num_br_link_keys = 0;
 
     ble_store_config_conf_init();
 }

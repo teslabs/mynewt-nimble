@@ -28,6 +28,7 @@
 #include "audio/ble_audio_broadcast_source.h"
 #endif /* BLE_AUDIO && BLE_ISO_BROADCAST_SOURCE */
 #include "ble_hs_priv.h"
+#include "ble_br_priv.h"
 #include "ble_iso_priv.h"
 #include "nimble/nimble_npl.h"
 #ifndef MYNEWT
@@ -369,6 +370,10 @@ ble_hs_reset(void)
 
     ble_hs_clear_rx_queue();
 
+#if MYNEWT_VAL(BLE_BREDR)
+    ble_br_hs_reset();
+#endif
+
     /* Clear adverising and scanning states. */
     ble_gap_reset_state(ble_hs_reset_reason);
 
@@ -414,6 +419,11 @@ ble_hs_timer_exp(struct ble_npl_event *ev)
 
         ticks_until_next = ble_gap_timer();
         ble_hs_timer_sched(ticks_until_next);
+
+#if MYNEWT_VAL(BLE_BREDR)
+        ticks_until_next = ble_br_hs_timer();
+        ble_hs_timer_sched(ticks_until_next);
+#endif
 
         break;
 
@@ -774,6 +784,10 @@ ble_hs_init(void)
 #endif
 
     ble_hs_stop_init();
+
+#if MYNEWT_VAL(BLE_BREDR)
+    ble_br_hs_init();
+#endif
 
     ble_mqueue_init(&ble_hs_rx_q, ble_hs_event_rx_data, NULL);
 

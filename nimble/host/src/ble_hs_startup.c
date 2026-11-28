@@ -22,6 +22,7 @@
 #include "host/ble_hs.h"
 #include "host/ble_hs_hci.h"
 #include "ble_hs_priv.h"
+#include "ble_br_priv.h"
 
 #if !MYNEWT_VAL(BLE_CONTROLLER)
 static int
@@ -44,6 +45,10 @@ ble_hs_startup_read_sup_f_tx(void)
         BLE_HS_LOG(ERROR, "Controller doesn't support LE\n");
         return BLE_HS_ECONTROLLER;
     }
+
+#if MYNEWT_VAL(BLE_BREDR)
+    ble_br_hs_set_features(le64toh(rsp.features));
+#endif
 
     return 0;
 }
@@ -152,6 +157,10 @@ ble_hs_startup_read_buf_sz(void)
     uint16_t max_pkts = 0;
     uint16_t pktlen = 0;
     uint8_t le_max_pkts = 0;
+#if MYNEWT_VAL(BLE_BREDR)
+    uint16_t br_max_pkts;
+    uint16_t br_pktlen;
+#endif
     int rc;
 
     rc = ble_hs_startup_le_read_buf_sz_tx(&le_pktlen, &le_max_pkts);
@@ -168,6 +177,26 @@ ble_hs_startup_read_buf_sz(void)
             return rc;
         }
     }
+
+#if MYNEWT_VAL(BLE_BREDR)
+    if (ble_br_gap_supported()) {
+        br_pktlen = pktlen;
+        br_max_pkts = max_pkts;
+
+        /* LE has buffers of its own, or shares the BR/EDR ones */
+        if (le_pktlen != 0) {
+            rc = ble_hs_startup_read_buf_sz_tx(&br_pktlen, &br_max_pkts);
+            if (rc != 0) {
+                return rc;
+            }
+        }
+
+        rc = ble_br_hs_set_buf_sz(br_pktlen, br_max_pkts, le_pktlen == 0);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+#endif
 
     rc = ble_hs_hci_set_buf_sz(pktlen, max_pkts);
     if (rc != 0) {
@@ -363,7 +392,11 @@ ble_hs_startup_set_evmask_tx(void)
      *     0x0000800000000000 Encryption Key Refresh Complete Event
      *     0x2000000000000000 LE Meta-Event
      */
+#if MYNEWT_VAL(BLE_BREDR)
+    cmd.event_mask = htole64(0x2000800002008090 | ble_br_hs_event_mask());
+#else
     cmd.event_mask = htole64(0x2000800002008090);
+#endif
 
     rc = ble_hs_hci_cmd_tx(BLE_HCI_OP(BLE_HCI_OGF_CTLR_BASEBAND,
                                       BLE_HCI_OCF_CB_SET_EVENT_MASK),
@@ -473,6 +506,13 @@ ble_hs_startup_go(void)
     if (rc != 0) {
         ble_hs_pvcy_set_our_irk(NULL);
     }
+
+#if MYNEWT_VAL(BLE_BREDR)
+    rc = ble_br_hs_startup();
+    if (rc != 0) {
+        return rc;
+    }
+#endif
 
     /* If flow control is enabled, configure the controller to use it. */
     ble_hs_flow_startup();

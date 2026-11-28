@@ -48,6 +48,9 @@ extern "C" {
 /** Object type: Client Characteristic Configuration Descriptor. */
 #define BLE_STORE_OBJ_TYPE_CCCD         3
 
+/** Object type: BR/EDR link key. */
+#define BLE_STORE_OBJ_TYPE_BR_LINK_KEY 4
+
 /** @} */
 
 /**
@@ -155,6 +158,36 @@ struct ble_store_value_cccd {
 };
 
 /**
+ * Used as a key for lookups of stored BR/EDR link keys.  This struct
+ * corresponds to the BLE_STORE_OBJ_TYPE_BR_LINK_KEY store object type.
+ */
+struct ble_store_key_br_link_key {
+    /**
+     * Key by peer address;
+     * peer_addr=BLE_ADDR_NONE means don't key off peer.
+     */
+    ble_addr_t peer_addr;
+
+    /** Number of results to skip; 0 means retrieve the first match. */
+    uint8_t idx;
+};
+
+/**
+ * Represents a stored BR/EDR link key.  This struct corresponds to the
+ * BLE_STORE_OBJ_TYPE_BR_LINK_KEY store object type.
+ */
+struct ble_store_value_br_link_key {
+    /** The address of the peer, a public one. */
+    ble_addr_t peer_addr;
+
+    /** The link key. */
+    uint8_t key[16];
+
+    /** The type of the link key, as the controller reports it. */
+    uint8_t key_type;
+};
+
+/**
  * Used as a key for store lookups.  This union must be accompanied by an
  * object type code to indicate which field is valid.
  */
@@ -163,6 +196,8 @@ union ble_store_key {
     struct ble_store_key_sec sec;
     /** Key for Client Characteristic Configuration Descriptor store lookups. */
     struct ble_store_key_cccd cccd;
+    /** Key for BR/EDR link key store lookups. */
+    struct ble_store_key_br_link_key br_link_key;
 };
 
 /**
@@ -174,6 +209,8 @@ union ble_store_value {
     struct ble_store_value_sec sec;
     /** Stored Client Characteristic Configuration Descriptor. */
     struct ble_store_value_cccd cccd;
+    /** Stored BR/EDR link key. */
+    struct ble_store_value_br_link_key br_link_key;
 };
 
 /** Represents an event associated with the BLE Store. */
@@ -556,6 +593,60 @@ int ble_store_write_cccd(const struct ble_store_value_cccd *value);
  */
 int ble_store_delete_cccd(const struct ble_store_key_cccd *key);
 
+/**
+ * @brief Reads a BR/EDR link key from a storage.
+ *
+ * @param key                   A pointer to a `ble_store_key_br_link_key`
+ *                                  structure representing the key to identify
+ *                                  the link key to be read.
+ * @param out_value             A pointer to a `ble_store_value_br_link_key`
+ *                                  structure to store the link key read from
+ *                                  a storage.
+ *
+ * @return                      0 if the link key was successfully read;
+ *                              Non-zero on error.
+ */
+int ble_store_read_br_link_key(const struct ble_store_key_br_link_key *key,
+                               struct ble_store_value_br_link_key *out_value);
+
+/**
+ * @brief Writes a BR/EDR link key to a storage.
+ *
+ * @param value                 A pointer to a `ble_store_value_br_link_key`
+ *                                  structure representing the link key to be
+ *                                  written to a storage.
+ *
+ * @return                      0 if the link key was successfully written to
+ *                                  a storage;
+ *                              Non-zero on error.
+ */
+int ble_store_write_br_link_key(const struct ble_store_value_br_link_key *value);
+
+/**
+ * @brief Deletes a BR/EDR link key from a storage.
+ *
+ * @param key                   A pointer to a `ble_store_key_br_link_key`
+ *                                  structure identifying the link key to be
+ *                                  deleted from a storage.
+ *
+ * @return                      0 if the link key was successfully deleted from
+ *                                  a storage;
+ *                              Non-zero on error.
+ */
+int ble_store_delete_br_link_key(const struct ble_store_key_br_link_key *key);
+
+/**
+ * @brief Generates a storage key for a BR/EDR link key from its value.
+ *
+ * @param out_key               A pointer to a `ble_store_key_br_link_key`
+ *                                  structure where the generated key will be
+ *                                  stored.
+ * @param value                 A pointer to a `ble_store_value_br_link_key`
+ *                                  structure containing the link key from
+ *                                  which the key will be generated.
+ */
+void ble_store_key_from_value_br_link_key(struct ble_store_key_br_link_key *out_key,
+                                          const struct ble_store_value_br_link_key *value);
 
 /**
  * @brief Generates a storage key for a security material entry from its value.

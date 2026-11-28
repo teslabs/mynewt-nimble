@@ -109,6 +109,19 @@ ble_store_util_delete_peer(const ble_addr_t *peer_id_addr)
         return rc;
     }
 
+#if MYNEWT_VAL(BLE_BREDR)
+    /* A peer has the same address on BR/EDR, if it is a public one */
+    if (peer_id_addr->type == BLE_ADDR_PUBLIC) {
+        memset(&key, 0, sizeof key);
+        key.br_link_key.peer_addr = *peer_id_addr;
+
+        rc = ble_store_util_delete_all(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, &key);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+#endif
+
     return 0;
 }
 
@@ -187,6 +200,8 @@ ble_store_util_delete_oldest_peer(void)
 int
 ble_store_util_status_rr(struct ble_store_status_event *event, void *arg)
 {
+    union ble_store_key key;
+
     switch (event->event_code) {
     case BLE_STORE_EVENT_OVERFLOW:
         switch (event->overflow.obj_type) {
@@ -196,6 +211,10 @@ ble_store_util_status_rr(struct ble_store_status_event *event, void *arg)
         case BLE_STORE_OBJ_TYPE_CCCD:
             /* Try unpairing oldest peer except current peer */
             return ble_gap_unpair_oldest_except(&event->overflow.value->cccd.peer_addr);
+        case BLE_STORE_OBJ_TYPE_BR_LINK_KEY:
+            /* The first link key stored makes room for the new one */
+            memset(&key, 0, sizeof key);
+            return ble_store_delete(BLE_STORE_OBJ_TYPE_BR_LINK_KEY, &key);
 
         default:
             return BLE_HS_EUNKNOWN;

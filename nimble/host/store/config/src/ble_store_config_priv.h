@@ -36,11 +36,18 @@ extern struct ble_store_value_cccd
     ble_store_config_cccds[MYNEWT_VAL(BLE_STORE_MAX_CCCDS)];
 extern int ble_store_config_num_cccds;
 
+#if MYNEWT_VAL(BLE_BREDR)
+extern struct ble_store_value_br_link_key
+    ble_store_config_br_link_keys[MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS)];
+#endif
+extern int ble_store_config_num_br_link_keys;
+
 #if MYNEWT_VAL(BLE_STORE_CONFIG_PERSIST)
 
 int ble_store_config_persist_our_secs(void);
 int ble_store_config_persist_peer_secs(void);
 int ble_store_config_persist_cccds(void);
+int ble_store_config_persist_br_link_keys(void);
 void ble_store_config_conf_init(void);
 
 #else
@@ -48,6 +55,11 @@ void ble_store_config_conf_init(void);
 static inline int ble_store_config_persist_our_secs(void)   { return 0; }
 static inline int ble_store_config_persist_peer_secs(void)  { return 0; }
 static inline int ble_store_config_persist_cccds(void)      { return 0; }
+static inline int
+ble_store_config_persist_br_link_keys(void)
+{
+    return 0;
+}
 static inline void ble_store_config_conf_init(void)         { }
 
 #endif /* MYNEWT_VAL(BLE_STORE_CONFIG_PERSIST) */

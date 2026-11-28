@@ -25,6 +25,7 @@
 #include "host/ble_gap.h"
 #include "host/ble_iso.h"
 #include "ble_hs_priv.h"
+#include "ble_br_priv.h"
 #include "ble_iso_priv.h"
 #if MYNEWT_VAL(BLE_CHANNEL_SOUNDING)
 #include "ble_cs_priv.h"
@@ -219,6 +220,12 @@ ble_hs_hci_evt_disconn_complete(uint8_t event_code, const void *data,
         return BLE_HS_ECONTROLLER;
     }
 
+#if MYNEWT_VAL(BLE_BREDR)
+    if (ble_br_hs_rx_disconn_cmp(ev) == 0) {
+        return 0;
+    }
+#endif
+
     ble_hs_lock();
     conn = ble_hs_conn_find(le16toh(ev->conn_handle));
     if (conn != NULL) {
@@ -247,6 +254,12 @@ ble_hs_hci_evt_encrypt_change(uint8_t event_code, const void *data,
     if (len != sizeof (*ev)) {
         return BLE_HS_ECONTROLLER;
     }
+
+#if MYNEWT_VAL(BLE_BREDR)
+    if (ble_br_hs_rx_enc_change(ev) == 0) {
+        return 0;
+    }
+#endif
 
     ble_sm_enc_change_rx(ev);
 
@@ -317,6 +330,13 @@ ble_hs_hci_evt_num_completed_pkts(uint8_t event_code, const void *data,
                 ble_hs_hci_add_avail_pkts(num_pkts);
             }
             ble_hs_unlock();
+
+#if MYNEWT_VAL(BLE_BREDR)
+            if (conn == NULL) {
+                ble_br_hs_rx_num_completed_pkts(le16toh(ev->completed[i].handle),
+                                                num_pkts);
+            }
+#endif
         }
     }
 
@@ -1070,6 +1090,12 @@ ble_hs_hci_evt_process(struct ble_hci_ev *ev)
 
 
     entry = ble_hs_hci_evt_dispatch_find(ev->opcode);
+#if MYNEWT_VAL(BLE_BREDR)
+    if (entry == NULL && ble_br_hs_rx_evt(ev) != BLE_HS_ENOTSUP) {
+        ble_transport_free(ev);
+        return 0;
+    }
+#endif
     if (entry == NULL) {
 #if MYNEWT_VAL(BLE_HS_GAP_UNHANDLED_HCI_EVENT)
         ble_gap_unhandled_hci_event(false, false, ev->data, ev->length);
@@ -1128,6 +1154,13 @@ ble_hs_hci_evt_acl_process(struct os_mbuf *om)
 
     conn_handle = BLE_HCI_DATA_HANDLE(hci_hdr.hdh_handle_pb_bc);
     pb = BLE_HCI_DATA_PB(hci_hdr.hdh_handle_pb_bc);
+
+#if MYNEWT_VAL(BLE_BREDR)
+    if (ble_br_hs_rx_acl(conn_handle, pb, om) == 0) {
+        return 0;
+    }
+#endif
+
     rc = ble_l2cap_rx(conn_handle, pb, om);
 
     return rc;
