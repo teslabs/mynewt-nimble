@@ -184,6 +184,36 @@ int ble_br_sdp_register(const struct ble_br_sdp_record *record);
 int ble_br_sdp_find_rfcomm(uint16_t conn_handle, uint16_t uuid16,
                            ble_br_sdp_rfcomm_fn *cb, void *cb_arg);
 
+/* RFCOMM (ble_br_rfcomm.c) */
+
+struct ble_br_rfcomm_dlc;
+
+struct ble_br_rfcomm_dlc_ops {
+    /* The link is open, or failed to open and is gone */
+    void (*connected)(struct ble_br_rfcomm_dlc *dlc, int status, void *arg);
+    void (*disconnected)(struct ble_br_rfcomm_dlc *dlc, void *arg);
+    void (*recv)(struct ble_br_rfcomm_dlc *dlc, const uint8_t *data,
+                 uint16_t len, void *arg);
+};
+
+struct ble_br_rfcomm_server {
+    SLIST_ENTRY(ble_br_rfcomm_server) next;
+    uint8_t channel;
+    int (*accept)(uint16_t conn_handle,
+                  const struct ble_br_rfcomm_dlc_ops **ops, void **arg);
+};
+
+void ble_br_rfcomm_init(void);
+void ble_br_rfcomm_timer(ble_npl_time_t now, int32_t *ticks);
+int ble_br_rfcomm_server_register(struct ble_br_rfcomm_server *server);
+int ble_br_rfcomm_connect(uint16_t conn_handle, uint8_t channel,
+                          const struct ble_br_rfcomm_dlc_ops *ops, void *arg,
+                          struct ble_br_rfcomm_dlc **out_dlc);
+int ble_br_rfcomm_disconnect(struct ble_br_rfcomm_dlc *dlc);
+int ble_br_rfcomm_send(struct ble_br_rfcomm_dlc *dlc, const uint8_t *data,
+                       uint16_t len);
+uint16_t ble_br_rfcomm_dlc_conn_handle(const struct ble_br_rfcomm_dlc *dlc);
+
 #ifdef __cplusplus
 }
 #endif

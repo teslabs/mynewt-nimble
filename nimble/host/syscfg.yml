@@ -565,6 +565,14 @@ syscfg.defs:
         description: >
             The number of service records the SDP server can hold.
         value: 2
+    BLE_BREDR_RFCOMM_MAX_DLCS:
+        description: >
+            The number of RFCOMM data link connections.
+        value: 2
+    BLE_BREDR_RFCOMM_MTU:
+        description: >
+            The largest RFCOMM frame payload the host accepts.
+        value: 127
 
 syscfg.logs:
     BLE_HS_LOG:
